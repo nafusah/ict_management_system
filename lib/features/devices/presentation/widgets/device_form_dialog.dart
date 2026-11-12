@@ -25,11 +25,13 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
 
   late TextEditingController _nameController;
   late TextEditingController _serialController;
-  late TextEditingController _departmentController;
-  late TextEditingController _employeeController;
+  late TextEditingController _customDepartmentController;
+  late TextEditingController _customEmployeeController;
 
   late String _selectedBrand;
   late String _selectedType;
+  late String _selectedDepartment;
+  late String _selectedEmployee;
   late DeviceClassification _classification;
 
   final List<String> _brands = const ['Dell', 'HP', 'Lenovo', 'Apple', 'Cisco', 'Samsung', 'أخرى'];
@@ -43,31 +45,160 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
     'أخرى',
   ];
 
+  final List<String> _defaultDepartments = const [
+    'إدارة تقنية المعلومات',
+    'إدارة التحول الرقمي',
+    'مركز البيانات والشبكات',
+    'إدارة الشؤون المالية',
+    'إدارة الموارد البشرية',
+    'خدمة العملاء',
+    'إدارة المشتريات والمستودعات',
+    'الإدارة القانونية',
+    'الإدارة العامة',
+    'أخرى',
+  ];
+
+  final Map<String, List<String>> _departmentEmployees = const {
+    'إدارة تقنية المعلومات': [
+      'محمد الحملي',
+      'ياسر الغامدي',
+      'فهد العتيبي',
+      'فريق البنية التحتية',
+      'مشترك للشبكة الرئيسية',
+      'أخرى',
+    ],
+    'إدارة التحول الرقمي': [
+      'أحمد السعيد',
+      'عمر الدوسري',
+      'سلطان القحطاني',
+      'مشترك للتحول الرقمي',
+      'أخرى',
+    ],
+    'مركز البيانات والشبكات': [
+      'فريق البنية التحتية',
+      'عبدالله الشهري',
+      'مشترك للشبكة الرئيسية',
+      'مشترك لمركز البيانات',
+      'أخرى',
+    ],
+    'إدارة الشؤون المالية': [
+      'خالد المنصور',
+      'منى السالم',
+      'مشترك للموظفين',
+      'أخرى',
+    ],
+    'إدارة الموارد البشرية': [
+      'فاطمة الشهري',
+      'نورة القحطاني',
+      'رنا الحربي',
+      'مشترك للموارد البشرية',
+      'أخرى',
+    ],
+    'خدمة العملاء': [
+      'سارة خالد',
+      'هند الدوسري',
+      'مشترك لخدمة العملاء',
+      'أخرى',
+    ],
+    'إدارة المشتريات والمستودعات': [
+      'ماجد المطيري',
+      'إبراهيم الخالدي',
+      'مشترك للمستودعات',
+      'أخرى',
+    ],
+    'الإدارة القانونية': [
+      'عبدالعزيز الشمري',
+      'مشترك للإدارة القانونية',
+      'أخرى',
+    ],
+    'الإدارة العامة': [
+      'سعود الهاجري',
+      'مشترك الإدارة العامة',
+      'أخرى',
+    ],
+  };
+
+  final List<String> _generalEmployees = const [
+    'محمد الحملي',
+    'أحمد السعيد',
+    'سارة خالد',
+    'خالد المنصور',
+    'فاطمة الشهري',
+    'مشترك للموظفين',
+    'أخرى',
+  ];
+
+  late List<String> _departments;
+  final Map<String, List<String>> _customEmployeesMap = {};
+
+  List<String> _getEmployeesFor(String department) {
+    final base = _departmentEmployees[department] ?? _generalEmployees;
+    final custom = _customEmployeesMap[department] ?? [];
+    final result = <String>[];
+    for (final e in custom) {
+      if (!result.contains(e) && e != 'أخرى') result.add(e);
+    }
+    for (final e in base) {
+      if (!result.contains(e) && e != 'أخرى') result.add(e);
+    }
+    result.add('أخرى');
+    return result;
+  }
+
   @override
   void initState() {
     super.initState();
     final d = widget.device;
     _nameController = TextEditingController(text: d?.name ?? '');
     _serialController = TextEditingController(text: d?.serialNumber ?? '');
-    _departmentController = TextEditingController(text: d?.department ?? '');
-    _employeeController = TextEditingController(text: d?.employee ?? '');
+    _customDepartmentController = TextEditingController();
+    _customEmployeeController = TextEditingController();
 
     _selectedBrand = d?.brand ?? _brands.first;
     _selectedType = d?.deviceType ?? _types.first;
     _classification = d?.classification ?? DeviceClassification.personal;
+
+    _departments = List<String>.from(_defaultDepartments);
+
+    if (d != null && d.department.isNotEmpty) {
+      if (!_departments.contains(d.department)) {
+        _departments.insert(_departments.length - 1, d.department);
+      }
+      _selectedDepartment = d.department;
+    } else {
+      _selectedDepartment = _departments.first;
+    }
+
+    final empList = _getEmployeesFor(_selectedDepartment);
+    if (d != null && d.employee.isNotEmpty) {
+      if (!empList.contains(d.employee)) {
+        _customEmployeesMap.putIfAbsent(_selectedDepartment, () => []).add(d.employee);
+      }
+      _selectedEmployee = d.employee;
+    } else {
+      _selectedEmployee = _getEmployeesFor(_selectedDepartment).first;
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _serialController.dispose();
-    _departmentController.dispose();
-    _employeeController.dispose();
+    _customDepartmentController.dispose();
+    _customEmployeeController.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
+
+    final department = _selectedDepartment == 'أخرى'
+        ? _customDepartmentController.text.trim()
+        : _selectedDepartment;
+
+    final employee = _selectedEmployee == 'أخرى'
+        ? _customEmployeeController.text.trim()
+        : _selectedEmployee;
 
     final newDevice = DeviceEntity(
       id: widget.device?.id ?? 'DEV-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
@@ -75,8 +206,8 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
       serialNumber: _serialController.text.trim(),
       deviceType: _selectedType,
       brand: _selectedBrand,
-      department: _departmentController.text.trim(),
-      employee: _employeeController.text.trim(),
+      department: department,
+      employee: employee,
       classification: _classification,
     );
 
@@ -214,7 +345,7 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // الإدارة + الموظف المستلم
+                      // الإدارة + الموظف المستلم (قوائم اختيار Select)
                       Row(
                         children: [
                           Expanded(
@@ -222,12 +353,31 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _buildLabel('الإدارة التابع لها'),
-                                TextFormField(
-                                  controller: _departmentController,
-                                  decoration: const InputDecoration(
-                                    hintText: 'مثال: إدارة تقنية المعلومات',
-                                  ),
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'الرجاء إدخال الإدارة' : null,
+                                DropdownButtonFormField<String>(
+                                  value: _selectedDepartment,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(),
+                                  items: _departments
+                                      .map((dep) => DropdownMenuItem(
+                                            value: dep,
+                                            child: Text(
+                                              dep,
+                                              style: const TextStyle(fontSize: 13),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ))
+                                      .toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() {
+                                        _selectedDepartment = val;
+                                        final currentEmployees = _getEmployeesFor(val);
+                                        if (!currentEmployees.contains(_selectedEmployee)) {
+                                          _selectedEmployee = currentEmployees.first;
+                                        }
+                                      });
+                                    }
+                                  },
                                 ),
                               ],
                             ),
@@ -238,18 +388,80 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _buildLabel('الموظف / المستلم'),
-                                TextFormField(
-                                  controller: _employeeController,
-                                  decoration: const InputDecoration(
-                                    hintText: 'مثال: محمد الحملي (أو مشترك)',
-                                  ),
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'الرجاء تحديد المستلم' : null,
+                                DropdownButtonFormField<String>(
+                                  value: _selectedEmployee,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(),
+                                  items: _getEmployeesFor(_selectedDepartment)
+                                      .map((emp) => DropdownMenuItem(
+                                            value: emp,
+                                            child: Text(
+                                              emp,
+                                              style: const TextStyle(fontSize: 13),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ))
+                                      .toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() => _selectedEmployee = val);
+                                    }
+                                  },
                                 ),
                               ],
                             ),
                           ),
                         ],
                       ),
+
+                      // حقول إدخال مخصصة تظهر فقط عند اختيار "أخرى"
+                      if (_selectedDepartment == 'أخرى' || _selectedEmployee == 'أخرى') ...[
+                        const SizedBox(height: AppSpacing.md),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _selectedDepartment == 'أخرى'
+                                  ? Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _buildLabel('تحديد اسم الإدارة يدوياً'),
+                                        TextFormField(
+                                          controller: _customDepartmentController,
+                                          decoration: const InputDecoration(
+                                            hintText: 'اكتب اسم الإدارة هنا...',
+                                          ),
+                                          validator: (v) => (_selectedDepartment == 'أخرى' && (v == null || v.trim().isEmpty))
+                                              ? 'الرجاء إدخال اسم الإدارة'
+                                              : null,
+                                        ),
+                                      ],
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: _selectedEmployee == 'أخرى'
+                                  ? Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _buildLabel('تحديد اسم الموظف يدوياً'),
+                                        TextFormField(
+                                          controller: _customEmployeeController,
+                                          decoration: const InputDecoration(
+                                            hintText: 'اكتب اسم الموظف هنا...',
+                                          ),
+                                          validator: (v) => (_selectedEmployee == 'أخرى' && (v == null || v.trim().isEmpty))
+                                              ? 'الرجاء إدخال اسم الموظف'
+                                              : null,
+                                        ),
+                                      ],
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: AppSpacing.md),
 
                       // تصنيف الجهاز (شخصي / جماعي)

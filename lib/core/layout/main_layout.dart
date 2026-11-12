@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/theme.dart';
 import '../utils/breakpoints.dart';
 
 class MainLayout extends StatefulWidget {
   final Widget child;
 
-  const MainLayout({
-    super.key,
-    required this.child,
-  });
+  const MainLayout({super.key, required this.child});
 
   @override
   State<MainLayout> createState() => _MainLayoutState();
@@ -16,38 +14,31 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _selectedIndex = 0;
 
   // قائمة عناصر التنقل الأساسية
-  final List<({String title, IconData icon})> _navItems = const [
-    // (title: 'لوحة التحكم', icon: Icons.dashboard_outlined),
-    (title: 'الأصول والأجهزة', icon: Icons.devices_outlined),
-    // (title: 'الخوادم والبنية التحتية', icon: Icons.dns_outlined),
-    // (title: 'تذاكر الدعم', icon: Icons.confirmation_number_outlined),
-    // (title: 'إعدادات النظام', icon: Icons.settings_outlined),
+  final List<({String title, IconData icon, String route})> _navItems = const [
+    (title: 'الأصول والأجهزة', icon: Icons.devices_outlined, route: '/'),
+    (title: 'مخزون الأحبار (CMYK)', icon: Icons.format_color_fill_outlined, route: '/inks'),
   ];
 
   @override
   Widget build(BuildContext context) {
     final bool isDesktop = Breakpoints.isDesktop(context);
+    final String location = GoRouterState.of(context).uri.toString();
+    final int routeIndex = _navItems.indexWhere((item) => item.route == location);
+    final int activeIndex = routeIndex != -1 ? routeIndex : 0;
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.slateCanvas,
 
       // في الشاشات الصغيرة والمتوسطة: تصبح القائمة الجانبية Drawer منسدل
-      drawer: isDesktop
-          ? null
-          : Drawer(
-              child: _buildSidebar(),
-            ),
+      drawer: isDesktop ? null : Drawer(child: _buildSidebar(activeIndex)),
 
       body: Row(
         children: [
           // 1. القائمة الجانبية الثابتة (تظهر فقط في شاشات الـ Desktop)
-          if (isDesktop) ...[
-            _buildSidebar(),
-          ],
+          if (isDesktop) ...[_buildSidebar(activeIndex)],
 
           // 2. مساحة العمل الرئيسية (Topbar + المحتوى)
           Expanded(
@@ -59,17 +50,26 @@ class _MainLayoutState extends State<MainLayout> {
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     border: Border(
-                      bottom: BorderSide(color: AppColors.slateBorder, width: 1),
+                      bottom: BorderSide(
+                        color: AppColors.slateBorder,
+                        width: 1,
+                      ),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
                   child: Row(
                     children: [
                       // زر القائمة (يظهر فقط في الشاشات الصغيرة لفتح الـ Drawer)
                       if (!isDesktop) ...[
                         IconButton(
-                          icon: const Icon(Icons.menu, color: AppColors.slateDeep),
-                          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                          icon: const Icon(
+                            Icons.menu,
+                            color: AppColors.slateDeep,
+                          ),
+                          onPressed: () =>
+                              _scaffoldKey.currentState?.openDrawer(),
                           tooltip: 'فتح القائمة',
                         ),
                         const SizedBox(width: AppSpacing.sm),
@@ -77,7 +77,7 @@ class _MainLayoutState extends State<MainLayout> {
 
                       // عنوان الصفحة الحالية
                       Text(
-                        _navItems[_selectedIndex].title,
+                        _navItems[activeIndex].title,
                         style: const TextStyle(
                           color: AppColors.slateDeep,
                           fontWeight: FontWeight.w700,
@@ -96,7 +96,10 @@ class _MainLayoutState extends State<MainLayout> {
                           decoration: BoxDecoration(
                             color: AppColors.slateLight,
                             borderRadius: AppRadius.rounded,
-                            border: Border.all(color: AppColors.slateBorderSecondary, width: 1),
+                            border: Border.all(
+                              color: AppColors.slateBorderSecondary,
+                              width: 1,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -116,10 +119,16 @@ class _MainLayoutState extends State<MainLayout> {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  border: Border.all(color: AppColors.slateBorder, width: 1),
+                                  border: Border.all(
+                                    color: AppColors.slateBorder,
+                                    width: 1,
+                                  ),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
@@ -167,11 +176,17 @@ class _MainLayoutState extends State<MainLayout> {
 
                       // بطاقة الملف الشخصي (Profile Chip)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.slateCanvas,
                           borderRadius: AppRadius.roundedFull,
-                          border: Border.all(color: AppColors.slateBorder, width: 1),
+                          border: Border.all(
+                            color: AppColors.slateBorder,
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -225,9 +240,7 @@ class _MainLayoutState extends State<MainLayout> {
                 ),
 
                 // محتوى الصفحة الحالية (Content Area)
-                Expanded(
-                  child: widget.child,
-                ),
+                Expanded(child: widget.child),
               ],
             ),
           ),
@@ -237,7 +250,7 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   /// ودجت بناء القائمة الجانبية (Sidebar)
-  Widget _buildSidebar() {
+  Widget _buildSidebar(int activeIndex) {
     return Container(
       width: AppSpacing.sidebarWidth, // 260px
       clipBehavior: Clip.antiAlias,
@@ -306,33 +319,44 @@ class _MainLayoutState extends State<MainLayout> {
               separatorBuilder: (_, __) => const SizedBox(height: 2),
               itemBuilder: (context, index) {
                 final item = _navItems[index];
-                final isSelected = _selectedIndex == index;
+                final isSelected = activeIndex == index;
 
                 return InkWell(
                   onTap: () {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
+                    final currentLocation = GoRouterState.of(context).uri.toString();
+                    if (currentLocation != item.route) {
+                      context.go(item.route);
+                    }
                     // إغلاق الـ Drawer إذا كنا في وضع الموبايل
                     if (!Breakpoints.isDesktop(context)) {
                       Navigator.of(context).pop();
                     }
                   },
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeInOut,
                     height: 44,
-                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppColors.slateStructural : Colors.transparent,
+                      color: isSelected
+                          ? AppColors.slateStructural
+                          : Colors.transparent,
                       borderRadius: AppRadius.roundedLg, // 8px
                     ),
                     child: Row(
                       children: [
                         // مؤشر التحديد الرأسي باللون الأصفر الإشاري (3px)
-                        Container(
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
                           width: 3,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: isSelected ? AppColors.signalYellow : Colors.transparent,
+                            color: isSelected
+                                ? AppColors.signalYellow
+                                : Colors.transparent,
                             borderRadius: AppRadius.roundedSm,
                           ),
                         ),
@@ -340,15 +364,21 @@ class _MainLayoutState extends State<MainLayout> {
                         Icon(
                           item.icon,
                           size: 20,
-                          color: isSelected ? Colors.white : AppColors.slatePlaceholder,
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.slatePlaceholder,
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
                             item.title,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : AppColors.slatePlaceholder,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppColors.slatePlaceholder,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                               fontSize: 13,
                             ),
                             maxLines: 1,
