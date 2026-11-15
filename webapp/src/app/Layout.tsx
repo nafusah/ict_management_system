@@ -8,7 +8,6 @@ import {
   Drop,
   Gear,
   Key,
-  Lightning,
   List,
   SquaresFour,
   Users,
@@ -87,11 +86,12 @@ function SidebarLink({
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav aria-label="القائمة الرئيسية" className="flex h-full flex-col bg-slate-900 text-slate-400">
-      <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-5">
-        <span className="flex size-8 items-center justify-center rounded bg-signal text-slate-900">
-          <Lightning className="size-5" weight="duotone" />
-        </span>
-        <span className="font-bold tracking-wide text-white">KINETIC AMBER</span>
+      <div className="flex h-16 items-center justify-center border-b border-slate-800 px-5">
+        <img
+          src="/images/Nafusah-logo-dark-theme.svg"
+          alt="شعار شركة نفوسة"
+          className="h-9 w-auto max-w-full object-contain"
+        />
       </div>
       <ul className="flex flex-1 flex-col gap-1 p-2">
         {NAV.map((item) => (

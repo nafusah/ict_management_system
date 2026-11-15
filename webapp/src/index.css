@@ -26,6 +26,7 @@ body {
     opacity: 0;
     transform: translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -42,6 +43,7 @@ body {
     opacity: 0;
     transform: scale(0.97) translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -57,6 +59,7 @@ dialog[open] {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
+
   to {
     opacity: 0;
     transform: scale(0.97) translateY(6px);
@@ -67,6 +70,7 @@ dialog[open] {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -76,6 +80,7 @@ dialog[open] {
   from {
     opacity: 1;
   }
+
   to {
     opacity: 0;
   }
@@ -98,6 +103,7 @@ dialog.modal-closing::backdrop {
     opacity: 0.7;
     transform: translateX(-100%);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -113,6 +119,7 @@ dialog.modal-closing::backdrop {
     opacity: 0;
     transform: translateY(-12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -127,6 +134,7 @@ dialog.modal-closing::backdrop {
   from {
     transform: translateX(-50%) rotate(0deg);
   }
+
   to {
     transform: translateX(-50%) rotate(360deg);
   }
@@ -188,6 +196,7 @@ dialog::backdrop {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
