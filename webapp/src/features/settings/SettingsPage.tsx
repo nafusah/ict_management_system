@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Building2, Check, Database, RotateCcw, ShieldCheck } from 'lucide-react'
-import { Button, Field, PageHeader, TextInput } from '../components/ui'
-import { useDevices, useInks } from '../data/store'
+import { SettingsTabs } from './components/SettingsTabs'
+import { Button, Field, PageHeader, TextInput } from '../../shared/components/ui'
+import { useDevices, useInks, useSubscriptions, useUsers } from '../../shared/data/store'
 
 export default function Settings() {
   const devices = useDevices()
   const inks = useInks()
+  const subscriptions = useSubscriptions()
+  const users = useUsers()
 
-  const [orgName, setOrgName] = useState('إدارة تقنية المعلومات')
+  const [orgName, setOrgName] = useState('إدارة الاتصالات وتقنية المعلومات')
   const [adminName, setAdminName] = useState('مدير النظام')
   const [adminEmail, setAdminEmail] = useState('it-admin@company.local')
   const [defaultInkThreshold, setDefaultInkThreshold] = useState('3')
@@ -22,7 +25,14 @@ export default function Settings() {
   const handleResetStorage = () => {
     if (window.confirm('هل أنت متأكد من إعادة ضبط البيانات التجريبية إلى الوضع الافتراضي؟')) {
       localStorage.removeItem('it-management:devices')
+      localStorage.removeItem('it-management:device-types')
       localStorage.removeItem('it-management:inks')
+      localStorage.removeItem('it-management:ink-colors')
+      localStorage.removeItem('it-management:brands')
+      localStorage.removeItem('it-management:services')
+      localStorage.removeItem('it-management:providers')
+      localStorage.removeItem('it-management:subscriptions')
+      localStorage.removeItem('it-management:users')
       window.location.reload()
     }
   }
@@ -33,6 +43,8 @@ export default function Settings() {
         title="الإعدادات"
         description="إعدادات النظام العامة وتفضيلات التنبيهات وإدارة البيانات المحلية."
       />
+
+      <SettingsTabs />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <form onSubmit={handleSave} className="space-y-6 lg:col-span-2">
@@ -148,6 +160,14 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <dt className="text-slate-500">أصناف الأحبار المسجلة</dt>
                 <dd className="font-mono font-bold text-slate-900">{inks.length}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-slate-500">الاشتراكات والتراخيص</dt>
+                <dd className="font-mono font-bold text-slate-900">{subscriptions.length}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-slate-500">المستخدمون المسجلون</dt>
+                <dd className="font-mono font-bold text-slate-900">{users.length}</dd>
               </div>
             </dl>
 

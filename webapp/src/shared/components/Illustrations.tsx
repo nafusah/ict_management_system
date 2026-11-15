@@ -1,5 +1,5 @@
 import { INK_COLORS } from '../data/types'
-import type { DeviceKind, InkColor } from '../data/types'
+import type { BuiltinDeviceKind, DeviceKind, InkColor, InkColorItem } from '../data/types'
 
 /*
  * رسومات توضيحية مسطحة مرسومة كـ SVG داخل الكود بألوان هوية Kinetic Amber.
@@ -68,8 +68,12 @@ const cartridgeBody = (label: string) => `
   <path d="M150 70 L156 69 L156 96 L150 97 Z" fill="#475569"/>`
 
 /** خرطوشة حبر بلون محدد مع قطرة حبر. */
-function cartridge(color: InkColor) {
-  const { primary: c, light } = INK_COLORS[color]
+function cartridge(color: InkColor | InkColorItem) {
+  const meta =
+    typeof color === 'string'
+      ? (INK_COLORS[color] ?? { primary: '#64748b', light: '#f1f5f9' })
+      : color
+  const { primary: c, light } = meta
   return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150">
   <path d="${BLOB}" fill="${light}"/>
@@ -107,7 +111,7 @@ function inkHero() {
 </svg>`
 }
 
-const DEVICE_BODIES: Record<DeviceKind, string> = {
+const DEVICE_BODIES: Record<BuiltinDeviceKind, string> = {
   monitor: `
   <rect x="28" y="18" width="64" height="44" rx="5" fill="#0F172A"/>
   <rect x="33" y="23" width="54" height="34" rx="2" fill="#4059AA"/>
@@ -141,6 +145,16 @@ const DEVICE_BODIES: Record<DeviceKind, string> = {
   <rect x="28" y="60" width="7" height="5" rx="1" fill="#94A3B8"/>
   <rect x="38" y="60" width="7" height="5" rx="1" fill="#94A3B8"/>
   <rect x="48" y="60" width="7" height="5" rx="1" fill="#FCC41A"/>`,
+  printer: `
+  <rect x="34" y="14" width="52" height="18" rx="3" fill="#CBD5E1"/>
+  <rect x="40" y="18" width="40" height="3" rx="1.5" fill="#94A3B8"/>
+  <rect x="22" y="30" width="76" height="34" rx="6" fill="#1E293B"/>
+  <rect x="28" y="36" width="64" height="10" rx="2" fill="#334155"/>
+  <circle cx="82" cy="41" r="2.2" fill="#10B981"/>
+  <circle cx="74" cy="41" r="2.2" fill="#FCC41A"/>
+  <rect x="34" y="54" width="52" height="18" rx="2" fill="#FFFFFF" stroke="#94A3B8" stroke-width="2"/>
+  <rect x="42" y="59" width="28" height="3" rx="1.5" fill="#4059AA"/>
+  <rect x="42" y="65" width="36" height="3" rx="1.5" fill="#CBD5E1"/>`,
   other: `
   <rect x="30" y="24" width="60" height="38" rx="4" fill="#1E293B"/>
   <rect x="35" y="29" width="50" height="28" rx="2" fill="#4059AA"/>
@@ -152,15 +166,34 @@ const DEVICE_BODIES: Record<DeviceKind, string> = {
 
 /** رسمة صغيرة لكل نوع جهاز. */
 function device(kind: DeviceKind) {
+  const body = (kind in DEVICE_BODIES ? DEVICE_BODIES[kind as BuiltinDeviceKind] : DEVICE_BODIES.other)
   return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90">
   <ellipse cx="60" cy="48" rx="50" ry="40" fill="#EFF4FF"/>
   <ellipse cx="60" cy="80" rx="36" ry="4" fill="#0F172A" opacity="0.08"/>
-  ${DEVICE_BODIES[kind]}
+  ${body}
 </svg>`
 }
 
-export const Illustrations = { devicesHero, cartridge, inkHero, device }
+/** بطاقة اشتراكات وتراخيص مع تقويم وختم. */
+const subscriptionsHero = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160">
+  <path d="M26 88 C20 44 68 18 122 20 C180 22 220 48 214 90 C208 132 164 146 118 144 C70 142 32 126 26 88 Z" fill="#EFF4FF"/>
+  <ellipse cx="120" cy="140" rx="76" ry="6" fill="#0F172A" opacity="0.08"/>
+  <rect x="46" y="34" width="128" height="92" rx="10" fill="#1E293B"/>
+  <rect x="46" y="34" width="128" height="24" rx="10" fill="#0F172A"/>
+  <rect x="46" y="48" width="128" height="10" fill="#0F172A"/>
+  <circle cx="64" cy="46" r="4" fill="#FCC41A"/>
+  <rect x="76" y="43" width="54" height="6" rx="3" fill="#475569"/>
+  <rect x="60" y="70" width="64" height="8" rx="4" fill="#DCE1FF"/>
+  <rect x="60" y="86" width="44" height="6" rx="3" fill="#94A3B8"/>
+  <rect x="60" y="100" width="78" height="6" rx="3" fill="#64748B"/>
+  <circle cx="170" cy="102" r="24" fill="#FCC41A"/>
+  <circle cx="170" cy="102" r="18" fill="#FEF3C7"/>
+  <path d="M161 102 L167 108 L180 95" stroke="#0F172A" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`
+
+export const Illustrations = { devicesHero, cartridge, inkHero, subscriptionsHero, device }
 
 export function Illustration({
   svg,

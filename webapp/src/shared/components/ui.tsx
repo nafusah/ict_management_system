@@ -1,6 +1,6 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
-import { Search, X } from 'lucide-react'
+import { CheckCircle, Info, MagnifyingGlass, Warning, WarningCircle, X } from '@phosphor-icons/react'
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -123,7 +123,7 @@ export function SearchInput({
 }) {
   return (
     <div className="relative w-full sm:max-w-sm">
-      <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+      <MagnifyingGlass className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
       <input
         type="search"
         value={value}
@@ -167,11 +167,11 @@ export function FilterChip({
 type PillTone = 'green' | 'blue' | 'amber' | 'red' | 'slate'
 
 const pillTones: Record<PillTone, string> = {
-  green: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-  blue: 'bg-blue-50 border-blue-200 text-blue-800',
-  amber: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-  red: 'bg-red-50 border-red-200 text-red-800',
-  slate: 'bg-slate-100 border-slate-200 text-slate-700',
+  green: 'bg-emerald-600 border-emerald-600 text-white',
+  blue: 'bg-blue-600 border-blue-600 text-white',
+  amber: 'bg-amber-500 border-amber-500 text-slate-950',
+  red: 'bg-red-600 border-red-600 text-white',
+  slate: 'bg-slate-700 border-slate-700 text-white',
 }
 
 export function Pill({ tone, children }: { tone: PillTone; children: ReactNode }) {
@@ -207,27 +207,48 @@ export function Modal({
   size?: 'sm' | 'md'
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const [rendered, setRendered] = useState(open)
+  const [closing, setClosing] = useState(false)
 
   useEffect(() => {
     const d = ref.current
     if (!d) return
-    if (open && !d.open) d.showModal()
-    if (!open && d.open) d.close()
+    if (open) {
+      setClosing(false)
+      setRendered(true)
+      if (!d.open) d.showModal()
+      return
+    }
+    if (!d.open) {
+      setRendered(false)
+      return
+    }
+    setClosing(true)
+    const timer = setTimeout(() => {
+      if (d.open) d.close()
+      setClosing(false)
+      setRendered(false)
+    }, 180)
+    return () => clearTimeout(timer)
   }, [open])
 
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      onCancel={(e) => {
+        e.preventDefault()
+        onClose()
+      }}
       onClick={(e) => {
         if (e.target === ref.current) onClose()
       }}
       className={cx(
         'm-auto w-[calc(100%-2rem)] rounded-xl bg-white p-0 text-slate-900 shadow-2xl',
         size === 'sm' ? 'max-w-md' : 'max-w-2xl',
+        closing && 'modal-closing',
       )}
     >
-      {open && (
+      {rendered && (
         <div className="flex max-h-[85vh] flex-col">
           <div className="flex items-start gap-4 border-b border-slate-200 px-6 py-5">
             <div className="flex-1">
@@ -329,6 +350,48 @@ export function Pagination({
           التالي
         </Button>
       </div>
+    </div>
+  )
+}
+
+const toastIcons: Record<PillTone, typeof CheckCircle> = {
+  green: CheckCircle,
+  blue: Info,
+  amber: Warning,
+  red: WarningCircle,
+  slate: Info,
+}
+
+export function Toast({
+  message,
+  tone = 'green',
+  onClose,
+  duration = 3000,
+}: {
+  message: string | null
+  tone?: PillTone
+  onClose: () => void
+  duration?: number
+}) {
+  useEffect(() => {
+    if (!message) return
+    const timer = setTimeout(onClose, duration)
+    return () => clearTimeout(timer)
+  }, [message, onClose, duration])
+
+  if (!message) return null
+  const Icon = toastIcons[tone]
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cx(
+        'toast-enter fixed top-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold shadow-lg',
+        pillTones[tone],
+      )}
+    >
+      <Icon className="size-5 shrink-0" weight="duotone" />
+      <span>{message}</span>
     </div>
   )
 }

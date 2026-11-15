@@ -1,6 +1,27 @@
 import { useSyncExternalStore } from 'react'
-import { SEED_DEVICES, SEED_INKS } from './seed'
-import type { Device, Ink } from './types'
+import {
+  SEED_BRANDS,
+  SEED_DEVICES,
+  SEED_DEVICE_TYPES,
+  SEED_INKS,
+  SEED_INK_COLORS,
+  SEED_PROVIDERS,
+  SEED_SERVICES,
+  SEED_SUBSCRIPTIONS,
+  SEED_USERS,
+} from './seed'
+import type {
+  AppUser,
+  BrandItem,
+  Device,
+  DeviceTypeItem,
+  Ink,
+  InkColorItem,
+  InkDispense,
+  ServiceItem,
+  ServiceProviderItem,
+  Subscription,
+} from './types'
 
 /**
  * طبقة التخزين. تحفظ البيانات الآن في متصفح المستخدم (localStorage).
@@ -56,7 +77,23 @@ function createCollection<T extends { id: string }>(key: string, idPrefix: strin
 }
 
 export const devicesStore = createCollection<Device>('devices', 'DEV', SEED_DEVICES)
+export const deviceTypesStore = createCollection<DeviceTypeItem>('device-types', 'TYPE', SEED_DEVICE_TYPES)
 export const inksStore = createCollection<Ink>('inks', 'INK', SEED_INKS)
+export const inkDispensesStore = createCollection<InkDispense>('ink-dispenses', 'DSP', [])
+export const inkColorsStore = createCollection<InkColorItem>('ink-colors', 'CLR', SEED_INK_COLORS)
+export const brandsStore = createCollection<BrandItem>('brands', 'BRD', SEED_BRANDS)
+export const servicesStore = createCollection<ServiceItem>('services', 'SRV', SEED_SERVICES)
+export const providersStore = createCollection<ServiceProviderItem>('providers', 'PRV', SEED_PROVIDERS)
+export const subscriptionsStore = createCollection<Subscription>('subscriptions', 'SUB', SEED_SUBSCRIPTIONS)
+export const usersStore = createCollection<AppUser>('users', 'USR', SEED_USERS)
 
 export const useDevices = () => useSyncExternalStore(devicesStore.subscribe, devicesStore.getAll)
+export const useDeviceTypes = () => useSyncExternalStore(deviceTypesStore.subscribe, deviceTypesStore.getAll)
 export const useInks = () => useSyncExternalStore(inksStore.subscribe, inksStore.getAll)
+export const useInkDispenses = () => useSyncExternalStore(inkDispensesStore.subscribe, inkDispensesStore.getAll)
+export const useInkColors = () => useSyncExternalStore(inkColorsStore.subscribe, inkColorsStore.getAll)
+export const useBrands = () => useSyncExternalStore(brandsStore.subscribe, brandsStore.getAll)
+export const useServices = () => useSyncExternalStore(servicesStore.subscribe, servicesStore.getAll)
+export const useProviders = () => useSyncExternalStore(providersStore.subscribe, providersStore.getAll)
+export const useSubscriptions = () => useSyncExternalStore(subscriptionsStore.subscribe, subscriptionsStore.getAll)
+export const useUsers = () => useSyncExternalStore(usersStore.subscribe, usersStore.getAll)

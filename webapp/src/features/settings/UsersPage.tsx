@@ -1,0 +1,445 @@
+import { useMemo, useState } from 'react'
+import { Check, Pencil, Plus, Shield, Trash2, UserCheck, UserX } from 'lucide-react'
+import {
+  Button,
+  ConfirmDelete,
+  Field,
+  FilterChip,
+  IconButton,
+  Modal,
+  PageHeader,
+  Pagination,
+  Pill,
+  SearchInput,
+  SelectInput,
+  TextInput,
+  cx,
+} from '../../shared/components/ui'
+import { SettingsTabs } from './components/SettingsTabs'
+import { usersStore, useUsers } from '../../shared/data/store'
+import { PERMISSIONS } from '../../shared/data/types'
+import type { AppUser, Permission } from '../../shared/data/types'
+
+const IT_DEPARTMENT = 'إدارة الاتصالات وتقنية المعلومات'
+
+const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[]
+const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
+  { label: 'مدير نظام (الكل)', permissions: ALL_PERMISSIONS },
+  {
+    label: 'فني دعم',
+    permissions: [
+      'dashboard.view',
+      'devices.view',
+      'devices.manage',
+      'inks.view',
+      'inks.manage',
+      'subscriptions.view',
+      'dictionary.inkColors',
+      'dictionary.brands',
+    ],
+  },
+  { label: 'مشاهد فقط', permissions: ['dashboard.view', 'devices.view', 'inks.view', 'subscriptions.view'] },
+]
+
+const PAGE_SIZE = 6
+
+export default function Users() {
+  const users = useUsers()
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [page, setPage] = useState(1)
+  const [editing, setEditing] = useState<AppUser | 'new' | null>(null)
+  const [deleting, setDeleting] = useState<AppUser | null>(null)
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return users.filter((u) => {
+      if (statusFilter === 'active' && !u.active) return false
+      if (statusFilter === 'inactive' && u.active) return false
+      if (!q) return true
+      return (
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.department.toLowerCase().includes(q)
+      )
+    })
+  }, [users, query, statusFilter])
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const rows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  const activeCount = users.filter((u) => u.active).length
+
+  return (
+    <div>
+      <PageHeader
+        title="المستخدمين"
+        description="إضافة المستخدمين وحذفهم وإدارة صلاحيات الوصول إلى أقسام النظام."
+        action={
+          <Button variant="primary" onClick={() => setEditing('new')}>
+            <Plus className="size-4" />
+            إضافة مستخدم
+          </Button>
+        }
+      />
+
+      <SettingsTabs />
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <SearchInput
+          value={query}
+          onChange={(v) => {
+            setQuery(v)
+            setPage(1)
+          }}
+          placeholder="ابحث بالاسم أو البريد أو الإدارة..."
+        />
+        <div className="flex flex-wrap gap-2">
+          <FilterChip
+            active={statusFilter === 'all'}
+            onClick={() => {
+              setStatusFilter('all')
+              setPage(1)
+            }}
+          >
+            الكل ({users.length})
+          </FilterChip>
+          <FilterChip
+            active={statusFilter === 'active'}
+            onClick={() => {
+              setStatusFilter('active')
+              setPage(1)
+            }}
+          >
+            نشط ({activeCount})
+          </FilterChip>
+          <FilterChip
+            active={statusFilter === 'inactive'}
+            onClick={() => {
+              setStatusFilter('inactive')
+              setPage(1)
+            }}
+          >
+            معطّل ({users.length - activeCount})
+          </FilterChip>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-right text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">
+              <tr>
+                <th className="px-4 py-3">المستخدم</th>
+                <th className="px-4 py-3">الإدارة</th>
+                <th className="px-4 py-3">الصلاحيات</th>
+                <th className="px-4 py-3">الحالة</th>
+                <th className="px-4 py-3 text-left">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                    لا يوجد مستخدمون مطابقون لنتائج البحث.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50/70">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-signal">
+                          {u.name.trim().slice(0, 2)}
+                        </span>
+                        <div>
+                          <div className="font-bold text-slate-900">{u.name}</div>
+                          <div dir="ltr" className="text-left text-xs text-slate-500">
+                            {u.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{u.department}</td>
+                    <td className="px-4 py-3">
+                      {u.permissions.length === ALL_PERMISSIONS.length ? (
+                        <Pill tone="amber">كامل الصلاحيات ({ALL_PERMISSIONS.length})</Pill>
+                      ) : u.permissions.length === 0 ? (
+                        <span className="text-xs text-slate-400">بدون صلاحيات</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {u.permissions.slice(0, 3).map((perm) => (
+                            <span
+                              key={perm}
+                              className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700"
+                            >
+                              {PERMISSIONS[perm].label}
+                            </span>
+                          ))}
+                          {u.permissions.length > 3 && (
+                            <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                              +{u.permissions.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Pill tone={u.active ? 'green' : 'slate'}>{u.active ? 'نشط' : 'معطّل'}</Pill>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <IconButton
+                          label={u.active ? 'تعطيل الحساب' : 'تفعيل الحساب'}
+                          onClick={() => usersStore.update({ ...u, active: !u.active })}
+                        >
+                          {u.active ? <UserX className="size-4" /> : <UserCheck className="size-4" />}
+                        </IconButton>
+                        <IconButton label="تعديل المستخدم والصلاحيات" onClick={() => setEditing(u)}>
+                          <Pencil className="size-4" />
+                        </IconButton>
+                        <IconButton
+                          label="حذف المستخدم"
+                          className="hover:bg-red-50 hover:text-red-700"
+                          onClick={() => setDeleting(u)}
+                        >
+                          <Trash2 className="size-4" />
+                        </IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          shown={rows.length}
+          total={filtered.length}
+          noun="مستخدم"
+          onPage={setPage}
+        />
+      </div>
+
+      <UserFormModal
+        user={editing === 'new' ? null : editing}
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        onSave={(data) => {
+          if (editing && editing !== 'new') {
+            usersStore.update({ ...data, id: editing.id })
+          } else {
+            usersStore.add(data)
+          }
+          setEditing(null)
+        }}
+      />
+
+      <ConfirmDelete
+        open={deleting !== null}
+        itemName={deleting?.name ?? ''}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => {
+          if (deleting) usersStore.remove(deleting.id)
+          setDeleting(null)
+        }}
+      />
+    </div>
+  )
+}
+
+function UserFormModal({
+  user,
+  open,
+  onClose,
+  onSave,
+}: {
+  user: AppUser | null
+  open: boolean
+  onClose: () => void
+  onSave: (data: Omit<AppUser, 'id'>) => void
+}) {
+  const [name, setName] = useState(user?.name ?? '')
+  const [email, setEmail] = useState(user?.email ?? '')
+  const [active, setActive] = useState(user?.active ?? true)
+  const [permissions, setPermissions] = useState<Permission[]>(user?.permissions ?? ['dashboard.view'])
+  const [errors, setErrors] = useState<{ name?: string; email?: string; permissions?: string }>({})
+
+  const resetFor = (target: AppUser | null) => {
+    setName(target?.name ?? '')
+    setEmail(target?.email ?? '')
+    setActive(target?.active ?? true)
+    setPermissions(target?.permissions ?? ['dashboard.view'])
+    setErrors({})
+  }
+
+  // Sync state whenever modal opens for a different user
+  const [lastKey, setLastKey] = useState<string>('')
+  const currentKey = open ? (user?.id ?? 'new') : 'closed'
+  if (currentKey !== lastKey) {
+    setLastKey(currentKey)
+    if (open) resetFor(user)
+  }
+
+  const togglePermission = (perm: Permission) => {
+    setPermissions((prev) => (prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]))
+    setErrors((e) => ({ ...e, permissions: undefined }))
+  }
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const nextErrors: { name?: string; email?: string; permissions?: string } = {}
+    if (!name.trim()) nextErrors.name = 'يرجى إدخال اسم المستخدم'
+    if (!email.trim() || !email.includes('@')) nextErrors.email = 'يرجى إدخال بريد إلكتروني صحيح'
+    if (permissions.length === 0) nextErrors.permissions = 'يرجى اختيار صلاحية واحدة على الأقل'
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      return
+    }
+
+    onSave({
+      name: name.trim(),
+      email: email.trim(),
+      department: IT_DEPARTMENT,
+      active,
+      permissions,
+    })
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={user ? `تعديل المستخدم: ${user.name}` : 'إضافة مستخدم جديد'}
+      description="حدد بيانات المستخدم واختر الصلاحيات المسموح له بها في النظام."
+      footer={
+        <>
+          <Button onClick={onClose}>إلغاء</Button>
+          <Button type="submit" form="user-form" variant="primary">
+            {user ? 'حفظ التعديلات' : 'إضافة المستخدم'}
+          </Button>
+        </>
+      }
+    >
+      <form id="user-form" onSubmit={submit} className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="الاسم الكامل" error={errors.name}>
+            {(id, desc) => (
+              <TextInput
+                id={id}
+                aria-invalid={Boolean(errors.name)}
+                aria-describedby={desc}
+                placeholder="مثال: خالد العتيبي"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setErrors((err) => ({ ...err, name: undefined }))
+                }}
+              />
+            )}
+          </Field>
+
+          <Field label="البريد الإلكتروني" error={errors.email}>
+            {(id, desc) => (
+              <TextInput
+                id={id}
+                type="email"
+                dir="ltr"
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={desc}
+                placeholder="user@company.local"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setErrors((err) => ({ ...err, email: undefined }))
+                }}
+              />
+            )}
+          </Field>
+
+          <Field label="الإدارة">
+            {(id) => <TextInput id={id} value={IT_DEPARTMENT} disabled className="bg-slate-100 text-slate-600" />}
+          </Field>
+
+          <Field label="حالة الحساب">
+            {(id) => (
+              <SelectInput
+                id={id}
+                value={active ? 'active' : 'inactive'}
+                onChange={(e) => setActive(e.target.value === 'active')}
+                options={[
+                  { value: 'active', label: 'نشط' },
+                  { value: 'inactive', label: 'معطّل' },
+                ]}
+              />
+            )}
+          </Field>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Shield className="size-4 text-slate-700" />
+              <span className="text-sm font-bold text-slate-900">الصلاحيات</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {PERMISSION_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    setPermissions(preset.permissions)
+                    setErrors((err) => ({ ...err, permissions: undefined }))
+                  }}
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {ALL_PERMISSIONS.map((perm) => {
+              const checked = permissions.includes(perm)
+              return (
+                <label
+                  key={perm}
+                  className={cx(
+                    'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                    checked
+                      ? 'border-slate-900 bg-white font-semibold text-slate-900'
+                      : 'border-slate-200 bg-white/60 text-slate-600 hover:border-slate-300',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => togglePermission(perm)}
+                    className="sr-only"
+                  />
+                  <span
+                    className={cx(
+                      'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
+                      checked ? 'border-slate-900 bg-slate-900 text-signal' : 'border-slate-300 bg-white',
+                    )}
+                  >
+                    {checked && <Check className="size-3.5 stroke-[3]" />}
+                  </span>
+                  <span className="leading-snug">{PERMISSIONS[perm].label}</span>
+                </label>
+              )
+            })}
+          </div>
+
+          {errors.permissions && <p className="mt-2 text-xs font-medium text-red-700">{errors.permissions}</p>}
+        </div>
+      </form>
+    </Modal>
+  )
+}
+

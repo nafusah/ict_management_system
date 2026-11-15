@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ArrowDownToLine, ArrowUpFromLine, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Illustration, Illustrations } from '../components/Illustrations'
+import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import {
   Button,
   ConfirmDelete,
@@ -17,26 +17,37 @@ import {
   SelectInput,
   TextInput,
   cx,
-} from '../components/ui'
-import { inksStore, useInks } from '../data/store'
-import { INK_BRANDS, OTHER } from '../data/options'
-import { INK_COLORS, isLowStock } from '../data/types'
-import type { Ink, InkColor } from '../data/types'
+} from '../../shared/components/ui'
+import { inkDispensesStore, inksStore, useBrands, useInkColors, useInkDispenses, useInks } from '../../shared/data/store'
+import { DEPARTMENTS, OTHER } from '../../shared/data/options'
+import { isLowStock } from '../../shared/data/types'
+import type { Ink, InkColor, InkColorItem } from '../../shared/data/types'
 
 const PAGE_SIZE = 10
 
-function Swatch({ color }: { color: InkColor }) {
+const FALLBACK_COLOR: InkColorItem = {
+  id: 'unknown',
+  name: 'غير محدد',
+  code: '?',
+  primary: '#64748b',
+  light: '#f1f5f9',
+  border: '#cbd5e1',
+}
+
+function Swatch({ meta }: { meta: InkColorItem }) {
   return (
     <span
       aria-hidden
       className="inline-block size-3 shrink-0 rounded-full ring-2 ring-white"
-      style={{ background: INK_COLORS[color].primary, boxShadow: `0 0 0 3px ${INK_COLORS[color].border}` }}
+      style={{ background: meta.primary, boxShadow: `0 0 0 3px ${meta.border}` }}
     />
   )
 }
 
 export default function Inks() {
   const inks = useInks()
+  const inkColors = useInkColors()
+  const colorMap = useMemo(() => Object.fromEntries(inkColors.map((c) => [c.id, c])), [inkColors])
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -47,7 +58,7 @@ export default function Inks() {
   const viewing = useMemo(() => inks.find((i) => i.id === viewingId) ?? null, [inks, viewingId])
 
   const colorParam = params.get('color')
-  const colorFilter = colorParam && colorParam in INK_COLORS ? (colorParam as InkColor) : null
+  const colorFilter = colorParam && colorParam in colorMap ? colorParam : null
   const lowOnly = params.get('low') === '1'
 
   const setFilter = (key: string, value: string | null) => {
@@ -64,9 +75,9 @@ export default function Inks() {
       (i) =>
         (!colorFilter || i.color === colorFilter) &&
         (!lowOnly || isLowStock(i)) &&
-        (!q || [i.model, i.brand, INK_COLORS[i.color].name].some((v) => v.toLowerCase().includes(q))),
+        (!q || [i.model, i.brand, colorMap[i.color]?.name ?? i.color].some((v) => v.toLowerCase().includes(q))),
     )
-  }, [inks, query, colorFilter, lowOnly])
+  }, [inks, query, colorFilter, lowOnly, colorMap])
 
   const lowCount = inks.filter(isLowStock).length
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -99,10 +110,10 @@ export default function Inks() {
           <FilterChip active={!colorFilter} onClick={() => setFilter('color', null)}>
             كل الألوان
           </FilterChip>
-          {(Object.keys(INK_COLORS) as InkColor[]).map((c) => (
-            <FilterChip key={c} active={colorFilter === c} onClick={() => setFilter('color', c)}>
-              <Swatch color={c} />
-              {INK_COLORS[c].name}
+          {inkColors.map((c) => (
+            <FilterChip key={c.id} active={colorFilter === c.id} onClick={() => setFilter('color', c.id)}>
+              <Swatch meta={c} />
+              {c.name}
             </FilterChip>
           ))}
           <span aria-hidden className="mx-1 h-5 w-px bg-slate-300" />
@@ -129,6 +140,7 @@ export default function Inks() {
             <tbody className="divide-y divide-slate-100">
               {rows.map((ink) => {
                 const low = isLowStock(ink)
+                const meta = colorMap[ink.color] ?? FALLBACK_COLOR
                 return (
                   <tr
                     key={ink.id}
@@ -137,13 +149,13 @@ export default function Inks() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <Swatch color={ink.color} />
+                        <Swatch meta={meta} />
                         <div>
                           <div className="font-semibold text-slate-900">
                             <bdi>{ink.model}</bdi>
                           </div>
                           <div className="text-xs text-slate-500">
-                            <bdi>{ink.brand}</bdi>، {INK_COLORS[ink.color].name} ({INK_COLORS[ink.color].code})
+                            <bdi>{ink.brand}</bdi>، {meta.name} ({meta.code})
                           </div>
                         </div>
                       </div>
@@ -247,16 +259,25 @@ function InkDetailsModal({
   onClose: () => void
   onEdit: () => void
 }) {
+  const inkColors = useInkColors()
+  const allDispenses = useInkDispenses()
+  const inkDispenses = useMemo(() => allDispenses.filter((d) => d.inkId === ink.id).slice(0, 5), [allDispenses, ink.id])
   const [mode, setMode] = useState<'dispense' | 'restock'>('dispense')
   const [amountStr, setAmountStr] = useState('1')
+  const [dept, setDept] = useState<string>(DEPARTMENTS[0])
+  const [customDept, setCustomDept] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
 
   const low = isLowStock(ink)
-  const meta = INK_COLORS[ink.color]
+  const meta = inkColors.find((c) => c.id === ink.color) ?? FALLBACK_COLOR
   const parsed = parseInt(amountStr, 10)
   const validNumber = !isNaN(parsed) && parsed > 0
   const exceedsStock = mode === 'dispense' && validNumber && parsed > ink.quantity
-  const canSubmit = validNumber && !exceedsStock && !(mode === 'dispense' && ink.quantity === 0)
+  const chosenDept = dept === OTHER ? customDept.trim() : dept
+  const canSubmit =
+    validNumber &&
+    !exceedsStock &&
+    !(mode === 'dispense' && (ink.quantity === 0 || !chosenDept))
 
   const stepAmount = (delta: number) => {
     const current = validNumber ? parsed : 1
@@ -276,7 +297,13 @@ function InkDetailsModal({
     inksStore.update({ ...ink, quantity: nextQuantity })
 
     if (mode === 'dispense') {
-      setNotice(`تم صرف ${parsed} من المخزون. الكمية المتبقية الآن: ${nextQuantity}`)
+      inkDispensesStore.add({
+        inkId: ink.id,
+        department: chosenDept,
+        quantity: parsed,
+        date: new Date().toISOString().slice(0, 10),
+      })
+      setNotice(`تم صرف ${parsed} لإدارة «${chosenDept}». الكمية المتبقية الآن: ${nextQuantity}`)
       if (nextQuantity === 0) {
         setAmountStr('1')
       } else if (parsed > nextQuantity) {
@@ -309,7 +336,7 @@ function InkDetailsModal({
         {/* بطاقة تعريف الحبر */}
         <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:flex-row sm:items-center">
           <Illustration
-            svg={Illustrations.cartridge(ink.color)}
+            svg={Illustrations.cartridge(meta)}
             label={`خرطوشة حبر ${meta.name}`}
             className="mx-auto h-24 w-32 shrink-0 sm:mx-0"
           />
@@ -321,7 +348,7 @@ function InkDetailsModal({
               {low ? <Pill tone="amber">تحت حد الطلب</Pill> : <Pill tone="green">كافٍ</Pill>}
             </div>
             <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
-              <Swatch color={ink.color} />
+              <Swatch meta={meta} />
               <span>
                 الماركة: <strong className="font-semibold text-slate-800"><bdi>{ink.brand}</bdi></strong>
               </span>
@@ -393,6 +420,41 @@ function InkDetailsModal({
             </div>
           </fieldset>
 
+          {mode === 'dispense' && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className={dept === OTHER ? '' : 'sm:col-span-2'}>
+                <Field label="الإدارة المستلمة">
+                  {(id) => (
+                    <SelectInput
+                      id={id}
+                      value={dept}
+                      onChange={(e) => {
+                        setDept(e.target.value)
+                        setNotice(null)
+                      }}
+                      options={[...DEPARTMENTS, OTHER].map((d) => ({ value: d, label: d }))}
+                    />
+                  )}
+                </Field>
+              </div>
+              {dept === OTHER && (
+                <Field label="اسم الإدارة">
+                  {(id) => (
+                    <TextInput
+                      id={id}
+                      value={customDept}
+                      onChange={(e) => {
+                        setCustomDept(e.target.value)
+                        setNotice(null)
+                      }}
+                      placeholder="اكتب اسم الإدارة المستلمة"
+                    />
+                  )}
+                </Field>
+              )}
+            </div>
+          )}
+
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label htmlFor="tx-amount" className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -451,25 +513,48 @@ function InkDetailsModal({
           {notice && (
             <p
               role="status"
-              className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"
+              className="mt-3 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"
             >
               {notice}
             </p>
           )}
         </form>
+
+        {inkDispenses.length > 0 && (
+          <div className="rounded-xl border border-slate-200 p-4">
+            <h3 className="mb-2.5 text-sm font-bold text-slate-900">سجل الصرف الأخير</h3>
+            <ul className="divide-y divide-slate-100 text-xs">
+              {inkDispenses.map((d) => (
+                <li key={d.id} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
+                  <span className="font-semibold text-slate-800">{d.department}</span>
+                  <div className="flex items-center gap-2">
+                    <Pill tone="slate">{d.quantity} خرطوش</Pill>
+                    <span className="font-mono text-slate-500">{d.date}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </Modal>
   )
 }
 
 function InkForm({ ink, onClose }: { ink: Ink | null; onClose: () => void }) {
+  const inkColors = useInkColors()
+  const brands = useBrands()
+  const brandOptions = useMemo(
+    () => [...brands.filter((b) => b.category === 'ink').map((b) => b.name), OTHER],
+    [brands],
+  )
   const isEdit = ink !== null
-  const knownBrand = !ink || INK_BRANDS.includes(ink.brand)
+  const knownBrand = !ink || brandOptions.includes(ink.brand)
 
-  const [brand, setBrand] = useState(ink ? (knownBrand ? ink.brand : OTHER) : INK_BRANDS[0])
+  const [brand, setBrand] = useState(ink ? (knownBrand ? ink.brand : OTHER) : brandOptions[0])
   const [customBrand, setCustomBrand] = useState(ink && !knownBrand ? ink.brand : '')
   const [model, setModel] = useState(ink?.model ?? '')
-  const [color, setColor] = useState<InkColor>(ink?.color ?? 'black')
+  const [color, setColor] = useState<InkColor>(ink?.color ?? inkColors[0]?.id ?? 'black')
   const [quantity, setQuantity] = useState(String(ink?.quantity ?? ''))
   const [threshold, setThreshold] = useState(String(ink?.alertThreshold ?? ''))
   const [submitted, setSubmitted] = useState(false)
@@ -521,7 +606,7 @@ function InkForm({ ink, onClose }: { ink: Ink | null; onClose: () => void }) {
               id={id}
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
-              options={INK_BRANDS.map((b) => ({ value: b, label: b }))}
+              options={brandOptions.map((b) => ({ value: b, label: b }))}
             />
           )}
         </Field>
@@ -561,25 +646,25 @@ function InkForm({ ink, onClose }: { ink: Ink | null; onClose: () => void }) {
         <fieldset className="sm:col-span-2">
           <legend className="mb-1.5 text-sm font-medium text-slate-700">اللون</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {(Object.keys(INK_COLORS) as InkColor[]).map((c) => (
+            {inkColors.map((c) => (
               <label
-                key={c}
+                key={c.id}
                 className={cx(
                   'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
                   'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-slate-900',
-                  color === c ? 'border-slate-900 bg-slate-50 font-semibold' : 'border-slate-300 hover:border-slate-400',
+                  color === c.id ? 'border-slate-900 bg-slate-50 font-semibold' : 'border-slate-300 hover:border-slate-400',
                 )}
               >
                 <input
                   type="radio"
                   name="ink-color"
-                  value={c}
-                  checked={color === c}
-                  onChange={() => setColor(c)}
+                  value={c.id}
+                  checked={color === c.id}
+                  onChange={() => setColor(c.id)}
                   className="sr-only"
                 />
-                <Swatch color={c} />
-                {INK_COLORS[c].name} ({INK_COLORS[c].code})
+                <Swatch meta={c} />
+                {c.name} ({c.code})
               </label>
             ))}
           </div>
