@@ -61,7 +61,9 @@ export interface InkDispense {
 }
 
 export type Permission =
-  | 'dashboard.view'
+  | 'dashboard.devices'
+  | 'dashboard.inks'
+  | 'dashboard.subscriptions'
   | 'devices.view'
   | 'devices.manage'
   | 'inks.view'
@@ -84,7 +86,9 @@ export interface AppUser {
 }
 
 export const PERMISSIONS: Record<Permission, { label: string; group: string }> = {
-  'dashboard.view': { label: 'عرض لوحة التحكم', group: 'لوحة التحكم' },
+  'dashboard.devices': { label: 'لوحة التحكم: إحصائيات الأجهزة', group: 'لوحة التحكم' },
+  'dashboard.inks': { label: 'لوحة التحكم: إحصائيات الأحبار', group: 'لوحة التحكم' },
+  'dashboard.subscriptions': { label: 'لوحة التحكم: إحصائيات الاشتراكات', group: 'لوحة التحكم' },
   'devices.view': { label: 'عرض الأجهزة', group: 'الأجهزة' },
   'devices.manage': { label: 'إدارة الأجهزة (إضافة/تعديل/حذف)', group: 'الأجهزة' },
   'inks.view': { label: 'عرض مخزون الأحبار', group: 'الأحبار' },

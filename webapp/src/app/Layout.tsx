@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   BookOpen,
@@ -12,11 +12,12 @@ import {
   List,
   SquaresFour,
   Users,
+  Warning,
   X,
 } from '@phosphor-icons/react'
 import { useInkColors, useInks, useSubscriptions } from '../shared/data/store'
 import { daysUntilExpiry, getSubscriptionStatus, isLowStock } from '../shared/data/types'
-import { Pill, cx } from '../shared/components/ui'
+import { Button, Modal, Pill, cx } from '../shared/components/ui'
 
 type NavItem = {
   to: string
@@ -111,10 +112,22 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [lowStockAlertOpen, setLowStockAlertOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return sessionStorage.getItem('it-low-stock-alert-seen') !== '1'
+  })
   const location = useLocation()
+  const navigate = useNavigate()
   const inks = useInks()
   const inkColors = useInkColors()
   const subscriptions = useSubscriptions()
+  const lowStockInks = useMemo(() => inks.filter(isLowStock), [inks])
+  const showLowStockAlert = lowStockAlertOpen && lowStockInks.length > 0
+
+  const dismissLowStockAlert = () => {
+    sessionStorage.setItem('it-low-stock-alert-seen', '1')
+    setLowStockAlertOpen(false)
+  }
 
   const notifications = useMemo(() => {
     const items: {
@@ -309,6 +322,55 @@ export default function Layout() {
           </div>
         </main>
       </div>
+
+      <Modal
+        open={showLowStockAlert}
+        onClose={dismissLowStockAlert}
+        size="sm"
+        title="تنبيه نقص مخزون الأحبار"
+        description={`يوجد ${lowStockInks.length} صنف حبر وصل إلى حد التنبيه أو أقل ويحتاج لإعادة التزويد.`}
+        footer={
+          <>
+            <Button onClick={dismissLowStockAlert}>إغلاق</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                dismissLowStockAlert()
+                navigate('/inks?low=1')
+              }}
+            >
+              عرض المخزون الناقص
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-2.5 rounded-lg bg-amber-500 px-3.5 py-2.5 text-sm font-bold text-slate-950">
+            <Warning className="size-5 shrink-0" weight="duotone" />
+            <span>يرجى مراجعة الأصناف التالية قبل نفادها بالكامل:</span>
+          </div>
+          <ul className="max-h-60 divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200">
+            {lowStockInks.map((ink) => {
+              const colorName = inkColors.find((c) => c.id === ink.color)?.name ?? ink.color
+              return (
+                <li key={ink.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-slate-900">
+                      <bdi>{ink.model}</bdi>
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {ink.brand} • {colorName}
+                    </p>
+                  </div>
+                  <Pill tone={ink.quantity === 0 ? 'red' : 'amber'}>
+                    {ink.quantity === 0 ? 'نفد (0)' : `المتوفر ${ink.quantity} / ${ink.alertThreshold}`}
+                  </Pill>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      </Modal>
     </div>
   )
 }

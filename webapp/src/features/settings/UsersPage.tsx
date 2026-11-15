@@ -28,7 +28,9 @@ const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
   {
     label: 'فني دعم',
     permissions: [
-      'dashboard.view',
+      'dashboard.devices',
+      'dashboard.inks',
+      'dashboard.subscriptions',
       'devices.view',
       'devices.manage',
       'inks.view',
@@ -38,7 +40,17 @@ const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
       'dictionary.brands',
     ],
   },
-  { label: 'مشاهد فقط', permissions: ['dashboard.view', 'devices.view', 'inks.view', 'subscriptions.view'] },
+  {
+    label: 'مشاهد فقط',
+    permissions: [
+      'dashboard.devices',
+      'dashboard.inks',
+      'dashboard.subscriptions',
+      'devices.view',
+      'inks.view',
+      'subscriptions.view',
+    ],
+  },
 ]
 
 const PAGE_SIZE = 6
@@ -174,7 +186,7 @@ export default function Users() {
                               key={perm}
                               className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700"
                             >
-                              {PERMISSIONS[perm].label}
+                              {PERMISSIONS[perm]?.label ?? perm}
                             </span>
                           ))}
                           {u.permissions.length > 3 && (
@@ -265,14 +277,14 @@ function UserFormModal({
   const [name, setName] = useState(user?.name ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
   const [active, setActive] = useState(user?.active ?? true)
-  const [permissions, setPermissions] = useState<Permission[]>(user?.permissions ?? ['dashboard.view'])
+  const [permissions, setPermissions] = useState<Permission[]>(user?.permissions ?? ['dashboard.devices'])
   const [errors, setErrors] = useState<{ name?: string; email?: string; permissions?: string }>({})
 
   const resetFor = (target: AppUser | null) => {
     setName(target?.name ?? '')
     setEmail(target?.email ?? '')
     setActive(target?.active ?? true)
-    setPermissions(target?.permissions ?? ['dashboard.view'])
+    setPermissions(target?.permissions ?? ['dashboard.devices'])
     setErrors({})
   }
 

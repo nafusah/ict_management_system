@@ -73,7 +73,9 @@ export const SEED_USERS: AppUser[] = [
     department: 'إدارة الاتصالات وتقنية المعلومات',
     active: true,
     permissions: [
-      'dashboard.view',
+      'dashboard.devices',
+      'dashboard.inks',
+      'dashboard.subscriptions',
       'devices.view',
       'devices.manage',
       'inks.view',
@@ -93,7 +95,16 @@ export const SEED_USERS: AppUser[] = [
     email: 'a.alsaeed@company.local',
     department: 'إدارة الاتصالات وتقنية المعلومات',
     active: true,
-    permissions: ['dashboard.view', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage', 'subscriptions.view'],
+    permissions: [
+      'dashboard.devices',
+      'dashboard.inks',
+      'dashboard.subscriptions',
+      'devices.view',
+      'devices.manage',
+      'inks.view',
+      'inks.manage',
+      'subscriptions.view',
+    ],
   },
   {
     id: 'USR-003',
@@ -101,7 +112,7 @@ export const SEED_USERS: AppUser[] = [
     email: 's.khaled@company.local',
     department: 'إدارة الاتصالات وتقنية المعلومات',
     active: false,
-    permissions: ['dashboard.view', 'devices.view', 'inks.view'],
+    permissions: ['dashboard.devices', 'dashboard.inks', 'devices.view', 'inks.view'],
   },
 ]
 
