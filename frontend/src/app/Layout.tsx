@@ -9,11 +9,13 @@ import {
   Gear,
   Key,
   List,
+  SignOut,
   SquaresFour,
   Users,
   Warning,
   X,
 } from '@phosphor-icons/react'
+import { logout, useAuth } from '../shared/data/auth'
 import { useInkColors, useInks, useSubscriptions } from '../shared/data/store'
 import { daysUntilExpiry, getSubscriptionStatus, isLowStock } from '../shared/data/types'
 import { Button, Modal, Pill, cx } from '../shared/components/ui'
@@ -118,6 +120,7 @@ export default function Layout() {
   })
   const location = useLocation()
   const navigate = useNavigate()
+  const session = useAuth()
   const inks = useInks()
   const inkColors = useInkColors()
   const subscriptions = useSubscriptions()
@@ -232,7 +235,7 @@ export default function Layout() {
               <span className="flex size-7 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-signal">
                 IT
               </span>
-              <span className="text-xs font-bold">مدير النظام</span>
+              <span className="text-xs font-bold">{session?.name ?? 'مدير النظام'}</span>
             </div>
             <button
               type="button"
@@ -246,6 +249,18 @@ export default function Layout() {
                   {notifications.length}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              aria-label="تسجيل الخروج"
+              title="تسجيل الخروج"
+              onClick={() => {
+                logout()
+                navigate('/login', { replace: true })
+              }}
+              className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-slate-900"
+            >
+              <SignOut className="size-4" />
             </button>
           </div>
         </header>
