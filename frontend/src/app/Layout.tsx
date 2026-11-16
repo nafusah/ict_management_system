@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   BookOpen,
+  CaretDown,
   CheckCircle,
   ClockCounterClockwise,
   DesktopTower,
@@ -160,8 +161,28 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [pwdOpen, setPwdOpen] = useState(false)
   const [pwdToast, setPwdToast] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [menuOpen])
   const [lowStockAlertOpen, setLowStockAlertOpen] = useState(() => {
     if (typeof window === 'undefined') return false
     return sessionStorage.getItem('it-low-stock-alert-seen') !== '1'
@@ -279,21 +300,64 @@ export default function Layout() {
             <List className="size-5" />
           </button>
           <div className="ms-auto flex items-center gap-2.5">
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 ps-1 pe-3">
-              <span className="flex size-7 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-signal">
-                IT
-              </span>
-              <span className="text-xs font-bold">{session?.name ?? 'مدير النظام'}</span>
+            <div ref={menuRef} className="relative">
+              <button
+                type="button"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                className="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 ps-1 pe-2.5 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-900"
+              >
+                <span className="flex size-7 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-signal">
+                  IT
+                </span>
+                <span className="text-xs font-bold text-slate-800">{session?.name ?? 'مدير النظام'}</span>
+                <CaretDown className={cx('size-3.5 text-slate-400 transition-transform', menuOpen && 'rotate-180')} />
+              </button>
+
+              {menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute top-full left-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                >
+                  <div className="border-b border-slate-100 px-3.5 py-2.5">
+                    <p className="truncate text-xs font-bold text-slate-900">{session?.name ?? 'مدير النظام'}</p>
+                    {session?.email && (
+                      <p className="mt-0.5 truncate text-[11px] text-slate-500" dir="ltr">
+                        {session.email}
+                      </p>
+                    )}
+                  </div>
+                  <div className="p-1.5">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        setPwdOpen(true)
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-right text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      <LockSimple className="size-4 text-slate-500" />
+                      تغيير كلمة المرور
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        logout()
+                        navigate('/login', { replace: true })
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-right text-xs font-medium text-red-700 transition-colors hover:bg-red-50"
+                    >
+                      <SignOut className="size-4" />
+                      تسجيل الخروج
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <button
-              type="button"
-              aria-label="تغيير كلمة المرور"
-              title="تغيير كلمة المرور"
-              onClick={() => setPwdOpen(true)}
-              className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-900"
-            >
-              <LockSimple className="size-4" />
-            </button>
             <button
               type="button"
               aria-label="الإشعارات"
@@ -306,18 +370,6 @@ export default function Layout() {
                   {notifications.length}
                 </span>
               )}
-            </button>
-            <button
-              type="button"
-              aria-label="تسجيل الخروج"
-              title="تسجيل الخروج"
-              onClick={() => {
-                logout()
-                navigate('/login', { replace: true })
-              }}
-              className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-slate-900"
-            >
-              <SignOut className="size-4" />
             </button>
           </div>
         </header>

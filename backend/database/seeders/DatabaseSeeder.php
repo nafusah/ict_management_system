@@ -6,14 +6,11 @@ use App\Models\AppSetting;
 use App\Models\AppUser;
 use App\Models\Brand;
 use App\Models\Department;
-use App\Models\Device;
 use App\Models\DeviceType;
 use App\Models\Employee;
-use App\Models\Ink;
 use App\Models\InkColor;
 use App\Models\Service;
 use App\Models\ServiceProvider;
-use App\Models\Subscription;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -98,31 +95,6 @@ class DatabaseSeeder extends Seeder
                     'employees.manage',
                 ],
             ],
-            [
-                'id' => 'USR-002',
-                'name' => 'أحمد السعيد',
-                'email' => 'a.alsaeed@nafusah.com',
-                'department' => 'إدارة الاتصالات وتقنية المعلومات',
-                'active' => true,
-                'permissions' => [
-                    'dashboard.devices',
-                    'dashboard.inks',
-                    'dashboard.subscriptions',
-                    'devices.view',
-                    'devices.manage',
-                    'inks.view',
-                    'inks.manage',
-                    'subscriptions.view',
-                ],
-            ],
-            [
-                'id' => 'USR-003',
-                'name' => 'سارة خالد',
-                'email' => 's.khaled@nafusah.com',
-                'department' => 'إدارة الاتصالات وتقنية المعلومات',
-                'active' => false,
-                'permissions' => ['dashboard.devices', 'dashboard.inks', 'devices.view', 'inks.view'],
-            ],
         ] as $row) {
             $user = AppUser::withTrashed()->find($row['id']);
             if ($user) {
@@ -130,32 +102,6 @@ class DatabaseSeeder extends Seeder
             } else {
                 AppUser::create(array_merge($row, ['password' => '123456']));
             }
-        }
-
-        foreach ([
-            ['id' => 'DEV-001', 'name' => 'Dell P2422H 24" IPS', 'serial_number' => 'DL-MON-88412', 'kind' => 'monitor', 'brand' => 'Dell', 'department' => 'الإدارة المالية', 'employee' => 'فاطمة المنصور', 'classification' => 'personal', 'location' => 'town', 'floor' => '2', 'office_number' => '204'],
-            ['id' => 'DEV-002', 'name' => 'HP EliteDesk 800 G9', 'serial_number' => 'HP-PC-30194', 'kind' => 'pcCase', 'brand' => 'HP', 'department' => 'إدارة الاتصالات وتقنية المعلومات', 'employee' => 'خالد الزهراني', 'classification' => 'personal', 'location' => 'town', 'floor' => '3', 'office_number' => '301'],
-            ['id' => 'DEV-003', 'name' => 'HP LaserJet Pro M404dn', 'serial_number' => 'HP-PRT-55019', 'kind' => 'printer', 'brand' => 'HP', 'department' => 'الموارد البشرية', 'employee' => 'مشترك للإدارة', 'classification' => 'shared', 'location' => 'town', 'floor' => '1', 'office_number' => '108'],
-            ['id' => 'DEV-004', 'name' => 'Cisco IP Phone 8841', 'serial_number' => 'CS-PHN-90211', 'kind' => 'phone', 'brand' => 'Cisco', 'department' => 'الشؤون القانونية', 'employee' => 'سارة الغامدي', 'classification' => 'personal', 'location' => 'field', 'floor' => null, 'office_number' => null],
-        ] as $row) {
-            Device::updateOrCreate(['id' => $row['id']], $row);
-        }
-
-        foreach ([
-            ['id' => 'INK-001', 'brand' => 'HP', 'model' => 'HP 59A (CF259A)', 'color' => 'black', 'quantity' => 14, 'alert_threshold' => 5],
-            ['id' => 'INK-002', 'brand' => 'HP', 'model' => 'HP 207A (W2211A)', 'color' => 'cyan', 'quantity' => 3, 'alert_threshold' => 4],
-            ['id' => 'INK-003', 'brand' => 'HP', 'model' => 'HP 207A (W2213A)', 'color' => 'magenta', 'quantity' => 7, 'alert_threshold' => 4],
-            ['id' => 'INK-004', 'brand' => 'HP', 'model' => 'HP 207A (W2212A)', 'color' => 'yellow', 'quantity' => 0, 'alert_threshold' => 4],
-        ] as $row) {
-            Ink::updateOrCreate(['id' => $row['id']], $row);
-        }
-
-        foreach ([
-            ['id' => 'SUB-001', 'service_name' => 'Microsoft 365 Business Standard', 'provider' => 'شركة التقنية الحديثة', 'category' => 'software', 'po_number' => 'PO-2026-001', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'alert_days_before' => 30, 'seats' => 45, 'annual_cost' => 21600, 'department' => 'I C T', 'status' => 'active', 'cancelled' => false, 'notes' => 'تجديد سنوي شامل لبريد الموظفين وحزمة أوفيس'],
-            ['id' => 'SUB-002', 'service_name' => 'Fortinet FortiGate UTM Bundle', 'provider' => 'مركز الأنظمة المتكاملة', 'category' => 'security', 'po_number' => 'PO-2025-112', 'start_date' => '2025-11-25', 'end_date' => '2026-11-25', 'alert_days_before' => 30, 'seats' => 2, 'annual_cost' => 14500, 'department' => 'I C T', 'status' => 'expiring', 'cancelled' => false, 'notes' => 'ترخيص جدار الحماية للمقر الرئيسي والفرع'],
-            ['id' => 'SUB-003', 'service_name' => 'Adobe Creative Cloud Teams', 'provider' => 'مؤسسة الحلول السحابية', 'category' => 'software', 'po_number' => 'PO-2025-089', 'start_date' => '2025-10-01', 'end_date' => '2026-10-01', 'alert_days_before' => 30, 'seats' => 6, 'annual_cost' => 8400, 'department' => 'TOP MANAGEMENT', 'status' => 'expired', 'cancelled' => false, 'notes' => 'بانتظار اعتماد عرض السعر للتجديد'],
-        ] as $row) {
-            Subscription::updateOrCreate(['id' => $row['id']], $row);
         }
 
         $empFile = database_path('seeders/data/employees.json');
