@@ -10,11 +10,14 @@ import {
   SEED_SUBSCRIPTIONS,
   SEED_USERS,
 } from './seed'
+import { SEED_DEPARTMENTS, SEED_EMPLOYEES } from './employeesSeed'
 import type {
   AppUser,
   BrandItem,
+  DepartmentItem,
   Device,
   DeviceTypeItem,
+  EmployeeItem,
   Ink,
   InkColorItem,
   InkDispense,
@@ -86,6 +89,8 @@ export const servicesStore = createCollection<ServiceItem>('services', 'SRV', SE
 export const providersStore = createCollection<ServiceProviderItem>('providers', 'PRV', SEED_PROVIDERS)
 export const subscriptionsStore = createCollection<Subscription>('subscriptions', 'SUB', SEED_SUBSCRIPTIONS)
 export const usersStore = createCollection<AppUser>('users', 'USR', SEED_USERS)
+export const departmentsStore = createCollection<DepartmentItem>('departments', 'DPT', SEED_DEPARTMENTS)
+export const employeesStore = createCollection<EmployeeItem>('employees', 'EMP', SEED_EMPLOYEES)
 
 export const useDevices = () => useSyncExternalStore(devicesStore.subscribe, devicesStore.getAll)
 export const useDeviceTypes = () => useSyncExternalStore(deviceTypesStore.subscribe, deviceTypesStore.getAll)
@@ -97,3 +102,5 @@ export const useServices = () => useSyncExternalStore(servicesStore.subscribe, s
 export const useProviders = () => useSyncExternalStore(providersStore.subscribe, providersStore.getAll)
 export const useSubscriptions = () => useSyncExternalStore(subscriptionsStore.subscribe, subscriptionsStore.getAll)
 export const useUsers = () => useSyncExternalStore(usersStore.subscribe, usersStore.getAll)
+export const useDepartments = () => useSyncExternalStore(departmentsStore.subscribe, departmentsStore.getAll)
+export const useEmployees = () => useSyncExternalStore(employeesStore.subscribe, employeesStore.getAll)

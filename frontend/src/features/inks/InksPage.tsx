@@ -18,8 +18,8 @@ import {
   TextInput,
   cx,
 } from '../../shared/components/ui'
-import { inkDispensesStore, inksStore, useBrands, useInkColors, useInkDispenses, useInks } from '../../shared/data/store'
-import { DEPARTMENTS, OTHER } from '../../shared/data/options'
+import { inkDispensesStore, inksStore, useBrands, useDepartments, useInkColors, useInkDispenses, useInks } from '../../shared/data/store'
+import { OTHER } from '../../shared/data/options'
 import { isLowStock } from '../../shared/data/types'
 import type { Ink, InkColor, InkColorItem } from '../../shared/data/types'
 
@@ -260,11 +260,13 @@ function InkDetailsModal({
   onEdit: () => void
 }) {
   const inkColors = useInkColors()
+  const departments = useDepartments()
+  const deptNames = useMemo(() => departments.map((d) => d.name), [departments])
   const allDispenses = useInkDispenses()
   const inkDispenses = useMemo(() => allDispenses.filter((d) => d.inkId === ink.id).slice(0, 5), [allDispenses, ink.id])
   const [mode, setMode] = useState<'dispense' | 'restock'>('dispense')
   const [amountStr, setAmountStr] = useState('1')
-  const [dept, setDept] = useState<string>(DEPARTMENTS[0])
+  const [dept, setDept] = useState<string>(deptNames[0] ?? OTHER)
   const [customDept, setCustomDept] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -432,7 +434,7 @@ function InkDetailsModal({
                         setDept(e.target.value)
                         setNotice(null)
                       }}
-                      options={[...DEPARTMENTS, OTHER].map((d) => ({ value: d, label: d }))}
+                      options={[...deptNames, OTHER].map((d) => ({ value: d, label: d }))}
                     />
                   )}
                 </Field>

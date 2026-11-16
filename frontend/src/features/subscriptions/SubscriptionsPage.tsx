@@ -17,8 +17,7 @@ import {
   TextInput,
   cx,
 } from '../../shared/components/ui'
-import { DEPARTMENTS } from '../../shared/data/options'
-import { subscriptionsStore, useProviders, useServices, useSubscriptions } from '../../shared/data/store'
+import { subscriptionsStore, useDepartments, useProviders, useServices, useSubscriptions } from '../../shared/data/store'
 import {
   SUBSCRIPTION_CATEGORIES,
   SUBSCRIPTION_STATUSES,
@@ -450,11 +449,20 @@ function SubscriptionFormModal({
     return names
   }, [providers, subscription])
 
+  const departments = useDepartments()
+  const deptNames = useMemo(() => {
+    const names = departments.map((d) => d.name)
+    if (subscription?.department && !names.includes(subscription.department)) {
+      return [subscription.department, ...names]
+    }
+    return names
+  }, [departments, subscription])
+
   const [serviceName, setServiceName] = useState(subscription?.serviceName ?? serviceOptions[0] ?? '')
   const [provider, setProvider] = useState(subscription?.provider ?? providerOptions[0] ?? '')
   const [category, setCategory] = useState<SubscriptionCategory>(subscription?.category ?? 'software')
   const [poNumber, setPoNumber] = useState(subscription?.poNumber ?? '')
-  const [department, setDepartment] = useState(subscription?.department ?? DEPARTMENTS[0])
+  const [department, setDepartment] = useState(subscription?.department ?? deptNames[0] ?? '')
   const [startDate, setStartDate] = useState(subscription?.startDate ?? todayStr)
   const [endDate, setEndDate] = useState(subscription?.endDate ?? addOneYear(todayStr))
   const [alertDaysBefore, setAlertDaysBefore] = useState(String(subscription?.alertDaysBefore ?? 30))
@@ -567,7 +575,7 @@ function SubscriptionFormModal({
               id={id}
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              options={DEPARTMENTS.map((d) => ({ value: d, label: d }))}
+              options={deptNames.map((d) => ({ value: d, label: d }))}
             />
           )}
         </Field>

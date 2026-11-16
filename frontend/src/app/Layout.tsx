@@ -7,6 +7,7 @@ import {
   DesktopTower,
   Drop,
   Gear,
+  IdentificationCard,
   Key,
   List,
   SignOut,
@@ -39,6 +40,7 @@ const NAV: NavItem[] = [
 const BOTTOM_NAV: NavItem[] = [
   { to: '/settings', label: 'الإعدادات', icon: Gear, end: true },
   { to: '/settings/users', label: 'المستخدمين', icon: Users, indent: true },
+  { to: '/settings/employees', label: 'الموظفين', icon: IdentificationCard, indent: true },
   { to: '/dictionary/device-types', label: 'القاموس', icon: BookOpen, indent: true, matchPrefix: '/dictionary' },
 ]
 

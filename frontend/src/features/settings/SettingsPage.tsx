@@ -33,6 +33,8 @@ export default function Settings() {
       localStorage.removeItem('it-management:providers')
       localStorage.removeItem('it-management:subscriptions')
       localStorage.removeItem('it-management:users')
+      localStorage.removeItem('it-management:departments')
+      localStorage.removeItem('it-management:employees')
       window.location.reload()
     }
   }

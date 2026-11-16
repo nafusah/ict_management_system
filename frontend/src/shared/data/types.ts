@@ -85,6 +85,17 @@ export interface AppUser {
   permissions: Permission[]
 }
 
+export interface DepartmentItem {
+  id: string
+  name: string
+}
+
+export interface EmployeeItem {
+  id: string
+  name: string
+  department: string
+}
+
 export const PERMISSIONS: Record<Permission, { label: string; group: string }> = {
   'dashboard.devices': { label: 'لوحة التحكم: إحصائيات الأجهزة', group: 'لوحة التحكم' },
   'dashboard.inks': { label: 'لوحة التحكم: إحصائيات الأحبار', group: 'لوحة التحكم' },

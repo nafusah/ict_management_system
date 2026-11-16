@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { BookOpen, SlidersHorizontal, Users } from '@phosphor-icons/react'
+import { BookOpen, IdentificationCard, SlidersHorizontal, Users } from '@phosphor-icons/react'
 import { cx } from '../../../shared/components/ui'
 
 const TABS = [
   { to: '/settings', label: 'الإعدادات العامة', icon: SlidersHorizontal, end: true },
   { to: '/settings/users', label: 'المستخدمين', icon: Users, end: false },
+  { to: '/settings/employees', label: 'الموظفين', icon: IdentificationCard, end: false },
   { to: '/dictionary/device-types', label: 'القاموس', icon: BookOpen, end: false },
 ]
 

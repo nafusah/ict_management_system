@@ -18,8 +18,8 @@ import {
   Toast,
   cx,
 } from '../../shared/components/ui'
-import { devicesStore, useBrands, useDeviceTypes, useDevices } from '../../shared/data/store'
-import { DEPARTMENTS, DEPARTMENT_EMPLOYEES, OTHER } from '../../shared/data/options'
+import { devicesStore, useBrands, useDepartments, useDeviceTypes, useDevices, useEmployees } from '../../shared/data/store'
+import { OTHER } from '../../shared/data/options'
 import { CLASSIFICATIONS, DEVICE_LOCATIONS } from '../../shared/data/types'
 import type { BuiltinDeviceKind, Classification, Device, DeviceKind, DeviceLocation } from '../../shared/data/types'
 
@@ -281,13 +281,16 @@ function DeviceForm({
 }) {
   const deviceTypes = useDeviceTypes()
   const brands = useBrands()
+  const departments = useDepartments()
+  const allEmployees = useEmployees()
   const brandOptions = useMemo(
     () => [...brands.filter((b) => b.category === 'device').map((b) => b.name), OTHER],
     [brands],
   )
+  const deptOptions = useMemo(() => [...departments.map((d) => d.name), OTHER], [departments])
   const isEdit = device !== null
   const brand0 = splitOther(device?.brand ?? '', brandOptions)
-  const dept0 = splitOther(device?.department ?? '', [...DEPARTMENTS, OTHER])
+  const dept0 = splitOther(device?.department ?? '', deptOptions)
 
   const [name, setName] = useState(device?.name ?? '')
   const [serial, setSerial] = useState(device?.serialNumber ?? '')
@@ -297,7 +300,10 @@ function DeviceForm({
   const [dept, setDept] = useState(dept0.choice)
   const [customDept, setCustomDept] = useState(dept0.custom)
 
-  const employeesFor = (d: string) => [...(DEPARTMENT_EMPLOYEES[d] ?? []), OTHER]
+  const employeesFor = (d: string) => [
+    ...allEmployees.filter((e) => e.department === d).map((e) => e.name),
+    OTHER,
+  ]
   const emp0 = splitOther(device?.employee ?? '', employeesFor(dept0.choice))
   const [employee, setEmployee] = useState(emp0.choice)
   const [customEmployee, setCustomEmployee] = useState(emp0.custom)
@@ -310,8 +316,11 @@ function DeviceForm({
   useEffect(() => {
     if (!open) return
     const nextBrand = splitOther(device?.brand ?? '', brandOptions)
-    const nextDept = splitOther(device?.department ?? '', [...DEPARTMENTS, OTHER])
-    const nextEmp = splitOther(device?.employee ?? '', [...(DEPARTMENT_EMPLOYEES[nextDept.choice] ?? []), OTHER])
+    const nextDept = splitOther(device?.department ?? '', deptOptions)
+    const nextEmp = splitOther(
+      device?.employee ?? '',
+      [...allEmployees.filter((e) => e.department === nextDept.choice).map((e) => e.name), OTHER],
+    )
     setName(device?.name ?? '')
     setSerial(device?.serialNumber ?? '')
     setKind(device?.kind ?? deviceTypes[0]?.id ?? 'monitor')
@@ -326,7 +335,7 @@ function DeviceForm({
     setFloor(device?.floor ?? '')
     setOfficeNumber(device?.officeNumber ?? '')
     setSubmitted(false)
-  }, [open, device, brandOptions, deviceTypes])
+  }, [open, device, brandOptions, deptOptions, allEmployees, deviceTypes])
 
   const isShared = classification === 'shared'
 
@@ -462,7 +471,7 @@ function DeviceForm({
                 setDept(e.target.value)
                 setEmployee(employeesFor(e.target.value)[0])
               }}
-              options={opts([...DEPARTMENTS, OTHER])}
+              options={opts(deptOptions)}
             />
           )}
         </Field>

@@ -10,6 +10,7 @@ import Inks from '../features/inks/InksPage'
 import ServicesSettings from '../features/dictionary/ServicesSettingsPage'
 import Settings from '../features/settings/SettingsPage'
 import Subscriptions from '../features/subscriptions/SubscriptionsPage'
+import Employees from '../features/settings/EmployeesPage'
 import Users from '../features/settings/UsersPage'
 import { useAuth } from '../shared/data/auth'
 
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="dictionary/services" element={<ServicesSettings />} />
           <Route path="settings" element={<Settings />} />
           <Route path="settings/users" element={<Users />} />
+          <Route path="settings/employees" element={<Employees />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
