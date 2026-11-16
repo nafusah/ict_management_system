@@ -13,6 +13,7 @@ import {
   Pagination,
   Pill,
   SearchInput,
+  SearchableSelect,
   SelectInput,
   TextInput,
   Toast,
@@ -464,32 +465,34 @@ function DeviceForm({
 
         <Field label="الإدارة">
           {(id) => (
-            <SelectInput
+            <SearchableSelect
               id={id}
               value={dept}
-              onChange={(e) => {
-                setDept(e.target.value)
-                setEmployee(employeesFor(e.target.value)[0])
+              onChange={(nextDept) => {
+                setDept(nextDept)
+                setEmployee(employeesFor(nextDept)[0])
               }}
               options={opts(deptOptions)}
+              searchPlaceholder="ابحث عن إدارة..."
             />
           )}
         </Field>
 
         <Field label="الموظف" hint={isShared ? 'مجمّد لأن الجهاز مصنّف كجهاز جماعي' : undefined}>
           {(id, d) => (
-            <SelectInput
+            <SearchableSelect
               id={id}
               aria-describedby={d}
               disabled={isShared}
               className={cx(isShared && 'cursor-not-allowed bg-slate-100 text-slate-400')}
               value={isShared ? '__shared__' : employee}
-              onChange={(e) => setEmployee(e.target.value)}
+              onChange={setEmployee}
               options={
                 isShared
                   ? [{ value: '__shared__', label: 'مشترك للإدارة (جهاز جماعي)' }]
                   : opts(employeesFor(dept))
               }
+              searchPlaceholder="ابحث عن اسم الموظف..."
             />
           )}
         </Field>

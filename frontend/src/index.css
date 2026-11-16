@@ -4,6 +4,9 @@
 @theme {
   --font-sans: "Tajawal", "Segoe UI", Tahoma, Arial, sans-serif;
   --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+  --font-weight-semibold: 500;
+  --font-weight-bold: 600;
+  --font-weight-extrabold: 700;
   --color-signal: #fcc41a;
   --color-signal-hover: #f5b700;
   --color-cobalt: #4059aa;
@@ -12,13 +15,16 @@
 
 html {
   background: var(--color-slate-50);
-  color: var(--color-slate-900);
+  color: var(--color-slate-700);
   scrollbar-gutter: stable;
 }
 
 body {
   font-family: var(--font-sans);
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 @keyframes page-enter {

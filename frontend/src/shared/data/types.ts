@@ -75,6 +75,7 @@ export type Permission =
   | 'dictionary.brands'
   | 'dictionary.services'
   | 'settings.manage'
+  | 'employees.manage'
 
 export interface AppUser {
   id: string
@@ -111,6 +112,7 @@ export const PERMISSIONS: Record<Permission, { label: string; group: string }> =
   'dictionary.brands': { label: 'القاموس: إدارة الماركات', group: 'القاموس' },
   'dictionary.services': { label: 'القاموس: إدارة الخدمات والمزودين', group: 'القاموس' },
   'settings.manage': { label: 'إدارة الإعدادات والمستخدمين', group: 'النظام' },
+  'employees.manage': { label: 'إدارة الموظفين والإدارات', group: 'النظام' },
 }
 
 export type SubscriptionCategory = 'software' | 'cloud' | 'security' | 'network' | 'other'

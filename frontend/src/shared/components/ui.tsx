@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
-import { CheckCircle, Info, MagnifyingGlass, Warning, WarningCircle, X } from '@phosphor-icons/react'
+import { CaretDown, Check, CheckCircle, Info, MagnifyingGlass, Warning, WarningCircle, X } from '@phosphor-icons/react'
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -109,6 +109,167 @@ export function SelectInput({
         </option>
       ))}
     </select>
+  )
+}
+
+export function SearchableSelect({
+  id,
+  value,
+  onChange,
+  options,
+  disabled,
+  className,
+  placeholder = 'اختر...',
+  searchPlaceholder = 'ابحث...',
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+}: {
+  id?: string
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  disabled?: boolean
+  className?: string
+  placeholder?: string
+  searchPlaceholder?: string
+  'aria-describedby'?: string
+  'aria-invalid'?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? placeholder
+
+  const updateCoords = () => {
+    const el = triggerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const available = window.innerHeight - rect.bottom - 16
+    setCoords({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.max(150, Math.min(240, available)),
+    })
+  }
+
+  useEffect(() => {
+    if (!open) return
+    updateCoords()
+    setQuery('')
+    const focusTimer = setTimeout(() => searchRef.current?.focus(), 0)
+
+    const handleOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
+    }
+    const handleReposition = () => updateCoords()
+
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('keydown', handleKey, true)
+    window.addEventListener('resize', handleReposition)
+    window.addEventListener('scroll', handleReposition, true)
+    return () => {
+      clearTimeout(focusTimer)
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('keydown', handleKey, true)
+      window.removeEventListener('resize', handleReposition)
+      window.removeEventListener('scroll', handleReposition, true)
+    }
+  }, [open])
+
+  const filtered = query.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        ref={triggerRef}
+        id={id}
+        type="button"
+        disabled={disabled}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => {
+          if (!disabled) setOpen((prev) => !prev)
+        }}
+        className={cx(
+          fieldBase,
+          'flex items-center justify-between gap-2 text-right',
+          disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+          className,
+        )}
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <CaretDown className={cx('size-4 shrink-0 text-slate-400 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && coords && (
+        <div
+          style={{ top: coords.top, left: coords.left, width: coords.width }}
+          className="fixed z-50 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+        >
+          <div className="border-b border-slate-100 p-2">
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-900 focus:bg-white focus:outline-none"
+            />
+          </div>
+          <ul
+            role="listbox"
+            style={{ maxHeight: coords.maxHeight }}
+            className="overflow-y-auto py-1 text-sm"
+          >
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-center text-xs text-slate-400">لا توجد نتائج مطابقة</li>
+            ) : (
+              filtered.map((o) => {
+                const active = o.value === value
+                return (
+                  <li key={o.value}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      onClick={() => {
+                        onChange(o.value)
+                        setOpen(false)
+                      }}
+                      className={cx(
+                        'flex w-full items-center justify-between gap-2 px-3 py-2 text-right transition-colors',
+                        active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100',
+                      )}
+                    >
+                      <span className="truncate">{o.label}</span>
+                      {active && <Check className="size-3.5 shrink-0" />}
+                    </button>
+                  </li>
+                )
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
 

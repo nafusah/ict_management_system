@@ -92,6 +92,7 @@ class DatabaseSeeder extends Seeder
                     'dictionary.brands',
                     'dictionary.services',
                     'settings.manage',
+                    'employees.manage',
                 ],
             ],
             [

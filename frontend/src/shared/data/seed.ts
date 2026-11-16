@@ -87,6 +87,7 @@ export const SEED_USERS: AppUser[] = [
       'dictionary.brands',
       'dictionary.services',
       'settings.manage',
+      'employees.manage',
     ],
   },
   {
