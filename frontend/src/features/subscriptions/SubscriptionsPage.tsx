@@ -13,10 +13,13 @@ import {
   Pagination,
   Pill,
   SearchInput,
+  SearchableSelect,
   SelectInput,
   TextInput,
+  Toast,
   cx,
 } from '../../shared/components/ui'
+import { recordAudit, usePermission } from '../../shared/data/auth'
 import { subscriptionsStore, useDepartments, useProviders, useServices, useSubscriptions } from '../../shared/data/store'
 import {
   SUBSCRIPTION_CATEGORIES,
@@ -50,6 +53,7 @@ function addOneYear(dateStr: string) {
 }
 
 export default function Subscriptions() {
+  const canManage = usePermission('subscriptions.manage')
   const subscriptions = useSubscriptions()
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState('')
@@ -57,6 +61,7 @@ export default function Subscriptions() {
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Subscription | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Subscription | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   const viewing = useMemo(
     () => subscriptions.find((s) => s.id === viewingId) ?? null,
@@ -105,10 +110,12 @@ export default function Subscriptions() {
         title="الاشتراكات والتراخيص"
         description="متابعة تراخيص البرمجيات والخدمات السحابية وتواريخ الانتهاء وأوامر الشراء."
         action={
-          <Button variant="primary" onClick={() => setEditing('new')}>
-            <Plus className="size-4" />
-            إضافة اشتراك
-          </Button>
+          canManage ? (
+            <Button variant="primary" onClick={() => setEditing('new')}>
+              <Plus className="size-4" />
+              إضافة اشتراك
+            </Button>
+          ) : undefined
         }
       />
 
@@ -207,16 +214,20 @@ export default function Subscriptions() {
                         >
                           التفاصيل
                         </Button>
-                        <IconButton label={`تعديل ${sub.serviceName}`} onClick={() => setEditing(sub)}>
-                          <Pencil className="size-4" />
-                        </IconButton>
-                        <IconButton
-                          label={`حذف ${sub.serviceName}`}
-                          className="hover:bg-red-50 hover:text-red-700"
-                          onClick={() => setDeleting(sub)}
-                        >
-                          <Trash2 className="size-4" />
-                        </IconButton>
+                        {canManage && (
+                          <>
+                            <IconButton label={`تعديل ${sub.serviceName}`} onClick={() => setEditing(sub)}>
+                              <Pencil className="size-4" />
+                            </IconButton>
+                            <IconButton
+                              label={`حذف ${sub.serviceName}`}
+                              className="hover:bg-red-50 hover:text-red-700"
+                              onClick={() => setDeleting(sub)}
+                            >
+                              <Trash2 className="size-4" />
+                            </IconButton>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -263,6 +274,7 @@ export default function Subscriptions() {
         <SubscriptionFormModal
           subscription={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
+          onSuccess={(msg) => setToast(msg)}
         />
       )}
 
@@ -271,10 +283,16 @@ export default function Subscriptions() {
         itemName={deleting?.serviceName ?? ''}
         onCancel={() => setDeleting(null)}
         onConfirm={() => {
-          if (deleting) subscriptionsStore.remove(deleting.id)
+          if (deleting) {
+            subscriptionsStore.remove(deleting.id)
+            recordAudit('deleted', 'subscription', `حذف اشتراك: ${deleting.serviceName}`, deleting.id)
+            setToast(`تم حذف اشتراك "${deleting.serviceName}" بنجاح`)
+          }
           setDeleting(null)
         }}
       />
+
+      <Toast message={toast} tone="green" onClose={() => setToast(null)} />
     </>
   )
 }
@@ -424,9 +442,11 @@ function SubscriptionDetailsModal({
 function SubscriptionFormModal({
   subscription,
   onClose,
+  onSuccess,
 }: {
   subscription: Subscription | null
   onClose: () => void
+  onSuccess: (msg: string) => void
 }) {
   const services = useServices()
   const providers = useProviders()
@@ -500,8 +520,15 @@ function SubscriptionFormModal({
       notes: notes.trim(),
     }
 
-    if (isEdit) subscriptionsStore.update({ ...data, id: subscription.id })
-    else subscriptionsStore.add(data)
+    if (isEdit) {
+      subscriptionsStore.update({ ...data, id: subscription.id })
+      recordAudit('updated', 'subscription', `تعديل اشتراك: ${data.serviceName}`, subscription.id)
+      onSuccess('تم حفظ تعديلات الاشتراك بنجاح')
+    } else {
+      subscriptionsStore.add(data)
+      recordAudit('created', 'subscription', `إضافة اشتراك: ${data.serviceName} (${data.department})`)
+      onSuccess('تمت إضافة الاشتراك بنجاح')
+    }
     onClose()
   }
 
@@ -571,11 +598,12 @@ function SubscriptionFormModal({
 
         <Field label="الإدارة المستفيدة">
           {(id) => (
-            <SelectInput
+            <SearchableSelect
               id={id}
               value={department}
-              onChange={(e) => setDepartment(e.target.value)}
+              onChange={setDepartment}
               options={deptNames.map((d) => ({ value: d, label: d }))}
+              searchPlaceholder="ابحث عن إدارة..."
             />
           )}
         </Field>

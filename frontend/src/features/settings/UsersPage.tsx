@@ -13,9 +13,11 @@ import {
   SearchInput,
   SelectInput,
   TextInput,
+  Toast,
   cx,
 } from '../../shared/components/ui'
 import { SettingsTabs } from './components/SettingsTabs'
+import { recordAudit } from '../../shared/data/auth'
 import { usersStore, useUsers } from '../../shared/data/store'
 import { PERMISSIONS } from '../../shared/data/types'
 import type { AppUser, Permission } from '../../shared/data/types'
@@ -62,6 +64,7 @@ export default function Users() {
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<AppUser | 'new' | null>(null)
   const [deleting, setDeleting] = useState<AppUser | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -243,8 +246,12 @@ export default function Users() {
         onSave={(data) => {
           if (editing && editing !== 'new') {
             usersStore.update({ ...data, id: editing.id })
+            recordAudit('updated', 'app_user', `تعديل بيانات وصلاحيات المستخدم: ${data.name}`, editing.id)
+            setToast(`تم تحديث بيانات "${data.name}" بنجاح`)
           } else {
             usersStore.add(data)
+            recordAudit('created', 'app_user', `إضافة مستخدم: ${data.name} (${data.email})`)
+            setToast(`تمت إضافة المستخدم "${data.name}" بنجاح`)
           }
           setEditing(null)
         }}
@@ -255,10 +262,16 @@ export default function Users() {
         itemName={deleting?.name ?? ''}
         onCancel={() => setDeleting(null)}
         onConfirm={() => {
-          if (deleting) usersStore.remove(deleting.id)
+          if (deleting) {
+            usersStore.remove(deleting.id)
+            recordAudit('deleted', 'app_user', `حذف المستخدم: ${deleting.name}`, deleting.id)
+            setToast(`تم حذف "${deleting.name}" بنجاح`)
+          }
           setDeleting(null)
         }}
       />
+
+      <Toast message={toast} tone="green" onClose={() => setToast(null)} />
     </div>
   )
 }
@@ -274,15 +287,19 @@ function UserFormModal({
   onClose: () => void
   onSave: (data: Omit<AppUser, 'id'>) => void
 }) {
+  const toUsername = (val?: string) => (val ?? '').trim().replace(/@nafusah\.com$/i, '')
+
   const [name, setName] = useState(user?.name ?? '')
-  const [email, setEmail] = useState(user?.email ?? '')
+  const [email, setEmail] = useState(toUsername(user?.email))
+  const [password, setPassword] = useState('')
   const [active, setActive] = useState(user?.active ?? true)
   const [permissions, setPermissions] = useState<Permission[]>(user?.permissions ?? ['dashboard.devices'])
-  const [errors, setErrors] = useState<{ name?: string; email?: string; permissions?: string }>({})
+  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; permissions?: string }>({})
 
   const resetFor = (target: AppUser | null) => {
     setName(target?.name ?? '')
-    setEmail(target?.email ?? '')
+    setEmail(toUsername(target?.email))
+    setPassword('')
     setActive(target?.active ?? true)
     setPermissions(target?.permissions ?? ['dashboard.devices'])
     setErrors({})
@@ -303,9 +320,13 @@ function UserFormModal({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    const nextErrors: { name?: string; email?: string; permissions?: string } = {}
+    const nextErrors: { name?: string; email?: string; password?: string; permissions?: string } = {}
+    const username = email.trim().replace(/@nafusah\.com$/i, '')
     if (!name.trim()) nextErrors.name = 'يرجى إدخال اسم المستخدم'
-    if (!email.trim() || !email.includes('@')) nextErrors.email = 'يرجى إدخال بريد إلكتروني صحيح'
+    if (!username || /\s|@/.test(username)) {
+      nextErrors.email = 'يرجى إدخال اسم المستخدم فقط بدون مسافات (يُضاف @nafusah.com تلقائياً)'
+    }
+    if (password && password.length < 4) nextErrors.password = 'كلمة المرور يجب أن تكون 4 أحرف على الأقل'
     if (permissions.length === 0) nextErrors.permissions = 'يرجى اختيار صلاحية واحدة على الأقل'
 
     if (Object.keys(nextErrors).length > 0) {
@@ -313,9 +334,11 @@ function UserFormModal({
       return
     }
 
+    const resolvedPassword = password.trim() || user?.password || '123456'
     onSave({
       name: name.trim(),
-      email: email.trim(),
+      email: `${username.toLowerCase()}@nafusah.com`,
+      password: resolvedPassword,
       department: IT_DEPARTMENT,
       active,
       permissions,
@@ -357,19 +380,33 @@ function UserFormModal({
 
           <Field label="البريد الإلكتروني" error={errors.email}>
             {(id, desc) => (
-              <TextInput
-                id={id}
-                type="email"
+              <div
                 dir="ltr"
-                aria-invalid={Boolean(errors.email)}
-                aria-describedby={desc}
-                placeholder="user@company.local"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  setErrors((err) => ({ ...err, email: undefined }))
-                }}
-              />
+                className={cx(
+                  'flex h-10 w-full items-center overflow-hidden rounded-md border bg-white focus-within:ring-1',
+                  errors.email
+                    ? 'border-red-500 focus-within:border-red-600 focus-within:ring-red-600'
+                    : 'border-slate-300 focus-within:border-slate-900 focus-within:ring-slate-900',
+                )}
+              >
+                <input
+                  id={id}
+                  type="text"
+                  inputMode="email"
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={desc}
+                  placeholder="k.alotaibi"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value.replace(/@nafusah\.com$/i, ''))
+                    setErrors((err) => ({ ...err, email: undefined }))
+                  }}
+                  className="h-full min-w-0 flex-1 bg-transparent px-3 text-left text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                />
+                <span className="flex h-full shrink-0 items-center border-l border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-600 select-none">
+                  @nafusah.com
+                </span>
+              </div>
             )}
           </Field>
 
@@ -387,6 +424,28 @@ function UserFormModal({
                   { value: 'active', label: 'نشط' },
                   { value: 'inactive', label: 'معطّل' },
                 ]}
+              />
+            )}
+          </Field>
+
+          <Field
+            label={user ? 'كلمة المرور (اختياري للتغيير)' : 'كلمة المرور'}
+            hint={!user ? 'الافتراضية 123456 إذا تُركت فارغة' : undefined}
+            error={errors.password}
+          >
+            {(id, desc) => (
+              <TextInput
+                id={id}
+                type="password"
+                dir="ltr"
+                aria-describedby={desc}
+                aria-invalid={!!errors.password}
+                value={password}
+                placeholder="••••••"
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setErrors((err) => ({ ...err, password: undefined }))
+                }}
               />
             )}
           </Field>

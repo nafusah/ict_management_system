@@ -19,6 +19,7 @@ import {
   Toast,
   cx,
 } from '../../shared/components/ui'
+import { recordAudit, usePermission } from '../../shared/data/auth'
 import { devicesStore, useBrands, useDepartments, useDeviceTypes, useDevices, useEmployees } from '../../shared/data/store'
 import { OTHER } from '../../shared/data/options'
 import { CLASSIFICATIONS, DEVICE_LOCATIONS } from '../../shared/data/types'
@@ -35,6 +36,7 @@ const KIND_ICONS: Record<BuiltinDeviceKind, typeof Monitor> = {
 }
 
 export default function Devices() {
+  const canManage = usePermission('devices.manage')
   const devices = useDevices()
   const deviceTypes = useDeviceTypes()
   const kindMap = useMemo(() => Object.fromEntries(deviceTypes.map((t) => [t.id, t])), [deviceTypes])
@@ -91,10 +93,12 @@ export default function Devices() {
         title="الأجهزة"
         description="الشاشات والكيسات والطابعات والهواتف المسلّمة للموظفين والإدارات."
         action={
-          <Button variant="primary" onClick={() => setEditing('new')}>
-            <Plus className="size-4" />
-            إضافة جهاز
-          </Button>
+          canManage ? (
+            <Button variant="primary" onClick={() => setEditing('new')}>
+              <Plus className="size-4" />
+              إضافة جهاز
+            </Button>
+          ) : undefined
         }
       />
 
@@ -200,18 +204,20 @@ export default function Devices() {
                       </Pill>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <IconButton label={`تعديل ${d.name}`} onClick={() => setEditing(d)}>
-                          <Pencil className="size-4" />
-                        </IconButton>
-                        <IconButton
-                          label={`حذف ${d.name}`}
-                          className="hover:bg-red-50 hover:text-red-700"
-                          onClick={() => setDeleting(d)}
-                        >
-                          <Trash2 className="size-4" />
-                        </IconButton>
-                      </div>
+                      {canManage && (
+                        <div className="flex justify-end gap-1">
+                          <IconButton label={`تعديل ${d.name}`} onClick={() => setEditing(d)}>
+                            <Pencil className="size-4" />
+                          </IconButton>
+                          <IconButton
+                            label={`حذف ${d.name}`}
+                            className="hover:bg-red-50 hover:text-red-700"
+                            onClick={() => setDeleting(d)}
+                          >
+                            <Trash2 className="size-4" />
+                          </IconButton>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )
@@ -255,7 +261,11 @@ export default function Devices() {
         itemName={deleting?.name ?? ''}
         onCancel={() => setDeleting(null)}
         onConfirm={() => {
-          if (deleting) devicesStore.remove(deleting.id)
+          if (deleting) {
+            devicesStore.remove(deleting.id)
+            recordAudit('deleted', 'device', `حذف الجهاز: ${deleting.name} (${deleting.serialNumber})`, deleting.id)
+            setToast(`تم حذف "${deleting.name}" بنجاح`)
+          }
           setDeleting(null)
         }}
       />
@@ -367,9 +377,16 @@ function DeviceForm({
     }
     if (isEdit) {
       devicesStore.update({ ...data, id: device.id })
+      const custodyChanged = device.employee !== data.employee || device.department !== data.department
+      const msg = custodyChanged
+        ? `تعديل/نقل عهدة الجهاز «${data.name}» من (${device.employee} - ${device.department}) إلى (${data.employee} - ${data.department})`
+        : `تعديل بيانات الجهاز: ${data.name} (${data.serialNumber})`
+      recordAudit('updated', 'device', msg, device.id)
+      onSuccess('تم حفظ التعديلات بنجاح')
     } else {
       devicesStore.add(data)
-      onSuccess('تمت الإضافة بنجاح')
+      recordAudit('created', 'device', `إضافة جهاز: ${data.name} (${data.serialNumber}) — ${data.employee}`)
+      onSuccess('تمت إضافة الجهاز بنجاح')
     }
     onClose()
   }

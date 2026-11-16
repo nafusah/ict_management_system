@@ -1,5 +1,73 @@
-import { create } from 'zustand'
+import { getStoredToken, request } from '../../shared/data/api'
+import { createCollection } from '../../shared/data/createCollection'
+import { SEED_DEPARTMENTS, SEED_EMPLOYEES } from '../../shared/data/employeesSeed'
+import { SEED_USERS } from '../../shared/data/seed'
+import type { AppUser, AuditLogItem, DepartmentItem, EmployeeItem } from '../../shared/data/types'
 
-export type SettingsState = object
+export const usersStore = createCollection<AppUser>('users', 'USR', SEED_USERS, '/users')
+export const departmentsStore = createCollection<DepartmentItem>('departments', 'DPT', SEED_DEPARTMENTS, '/departments')
+export const employeesStore = createCollection<EmployeeItem>('employees', 'EMP', SEED_EMPLOYEES, '/employees')
+export const auditLogsStore = createCollection<AuditLogItem>('audit-logs', 'LOG', [], '/audit-logs')
 
-export const useSettingsStore = create<SettingsState>()(() => ({}))
+export const useUsers = () => usersStore.useStore((s) => s.items)
+export const useDepartments = () => departmentsStore.useStore((s) => s.items)
+export const useEmployees = () => employeesStore.useStore((s) => s.items)
+export const useAuditLogs = () => auditLogsStore.useStore((s) => s.items)
+
+export interface GeneralSettingsData {
+  orgName: string
+  adminName: string
+  adminEmail: string
+  defaultInkThreshold: number
+}
+
+export async function fetchSettingsFromApi(): Promise<GeneralSettingsData | null> {
+  if (!getStoredToken()) return null
+  try {
+    return await request.get<GeneralSettingsData>('/settings')
+  } catch {
+    return null
+  }
+}
+
+export async function saveSettingsToApi(data: GeneralSettingsData): Promise<GeneralSettingsData | null> {
+  if (!getStoredToken()) return null
+  return await request.put<GeneralSettingsData>('/settings', data)
+}
+
+export async function downloadDatabaseBackup(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const token = getStoredToken()
+  if (!token) {
+    return { ok: false, error: 'حدث خطأ، يرجى المحاولة لاحقاً.' }
+  }
+
+  try {
+    const res = await fetch('/api/settings/backup', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/octet-stream, application/json',
+      },
+    })
+
+    if (!res.ok) {
+      return { ok: false, error: 'حدث خطأ، يرجى المحاولة لاحقاً.' }
+    }
+
+    const blob = await res.blob()
+    const disposition = res.headers.get('Content-Disposition') ?? ''
+    const match = disposition.match(/filename="?([^"]+)"?/i)
+    const filename = match?.[1] ?? `ict-backup-${new Date().toISOString().slice(0, 10)}.sql`
+
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'حدث خطأ، يرجى المحاولة لاحقاً.' }
+  }
+}

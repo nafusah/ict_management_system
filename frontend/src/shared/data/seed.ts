@@ -69,7 +69,7 @@ export const SEED_USERS: AppUser[] = [
   {
     id: 'USR-001',
     name: 'محمد الحملي',
-    email: 'm.alhamali@company.local',
+    email: 'm.alhamali@nafusah.com',
     department: 'إدارة الاتصالات وتقنية المعلومات',
     active: true,
     permissions: [
@@ -93,7 +93,7 @@ export const SEED_USERS: AppUser[] = [
   {
     id: 'USR-002',
     name: 'أحمد السعيد',
-    email: 'a.alsaeed@company.local',
+    email: 'a.alsaeed@nafusah.com',
     department: 'إدارة الاتصالات وتقنية المعلومات',
     active: true,
     permissions: [
@@ -110,7 +110,7 @@ export const SEED_USERS: AppUser[] = [
   {
     id: 'USR-003',
     name: 'سارة خالد',
-    email: 's.khaled@company.local',
+    email: 's.khaled@nafusah.com',
     department: 'إدارة الاتصالات وتقنية المعلومات',
     active: false,
     permissions: ['dashboard.devices', 'dashboard.inks', 'devices.view', 'inks.view'],

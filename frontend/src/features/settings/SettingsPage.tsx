@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Building2, Check, Database, RotateCcw, ShieldCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Building2, Database, Download, RotateCcw, ShieldCheck } from 'lucide-react'
 import { SettingsTabs } from './components/SettingsTabs'
-import { Button, Field, PageHeader, TextInput } from '../../shared/components/ui'
-import { useDevices, useInks, useSubscriptions, useUsers } from '../../shared/data/store'
+import { Button, Field, PageHeader, TextInput, Toast } from '../../shared/components/ui'
+import { downloadDatabaseBackup, fetchSettingsFromApi, saveSettingsToApi, useDevices, useInks, useSubscriptions, useUsers } from '../../shared/data/store'
 
 export default function Settings() {
   const devices = useDevices()
@@ -14,12 +14,39 @@ export default function Settings() {
   const [adminName, setAdminName] = useState('مدير النظام')
   const [adminEmail, setAdminEmail] = useState('it-admin@company.local')
   const [defaultInkThreshold, setDefaultInkThreshold] = useState('3')
-  const [savedNotice, setSavedNotice] = useState(false)
+  const [toast, setToast] = useState<{ message: string; tone: 'green' | 'red' } | null>(null)
+  const [backingUp, setBackingUp] = useState(false)
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    void fetchSettingsFromApi().then((remote) => {
+      if (!remote) return
+      setOrgName(remote.orgName)
+      setAdminName(remote.adminName)
+      setAdminEmail(remote.adminEmail)
+      setDefaultInkThreshold(String(remote.defaultInkThreshold))
+    })
+  }, [])
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSavedNotice(true)
-    setTimeout(() => setSavedNotice(false), 3000)
+    await saveSettingsToApi({
+      orgName: orgName.trim(),
+      adminName: adminName.trim(),
+      adminEmail: adminEmail.trim(),
+      defaultInkThreshold: Math.max(0, Number(defaultInkThreshold) || 0),
+    }).catch(() => {})
+    setToast({ message: 'تم حفظ الإعدادات بنجاح', tone: 'green' })
+  }
+
+  const handleBackup = async () => {
+    setBackingUp(true)
+    const res = await downloadDatabaseBackup()
+    setBackingUp(false)
+    if (res.ok) {
+      setToast({ message: 'تم تحميل النسخة الاحتياطية بنجاح', tone: 'green' })
+    } else {
+      setToast({ message: res.error, tone: 'red' })
+    }
   }
 
   const handleResetStorage = () => {
@@ -35,6 +62,7 @@ export default function Settings() {
       localStorage.removeItem('it-management:users')
       localStorage.removeItem('it-management:departments')
       localStorage.removeItem('it-management:employees')
+      localStorage.removeItem('it-management:audit-logs')
       window.location.reload()
     }
   }
@@ -129,16 +157,11 @@ export default function Settings() {
             </div>
 
             <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
-              {savedNotice && (
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
-                  <Check className="size-4" />
-                  تم حفظ الإعدادات بنجاح
-                </span>
-              )}
               <Button type="submit" variant="primary">
                 حفظ التغييرات
               </Button>
             </div>
+            <Toast message={toast?.message ?? null} tone={toast?.tone ?? 'green'} onClose={() => setToast(null)} />
           </section>
         </form>
 
@@ -173,7 +196,16 @@ export default function Settings() {
               </div>
             </dl>
 
-            <div className="mt-4">
+            <div className="mt-4 space-y-2.5">
+              <Button
+                variant="secondary"
+                className="w-full"
+                disabled={backingUp}
+                onClick={() => void handleBackup()}
+              >
+                <Download className="size-4" />
+                {backingUp ? 'جارٍ تجهيز النسخة...' : 'تحميل نسخة احتياطية (.sql)'}
+              </Button>
               <Button className="w-full" onClick={handleResetStorage}>
                 <RotateCcw className="size-4" />
                 إعادة ضبط البيانات الافتراضية

@@ -2,10 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\AppSetting;
 use App\Models\AppUser;
 use App\Models\Brand;
+use App\Models\Department;
 use App\Models\Device;
 use App\Models\DeviceType;
+use App\Models\Employee;
 use App\Models\Ink;
 use App\Models\InkColor;
 use App\Models\Service;
@@ -74,7 +77,7 @@ class DatabaseSeeder extends Seeder
             [
                 'id' => 'USR-001',
                 'name' => 'محمد الحملي',
-                'email' => 'm.alhamali@company.local',
+                'email' => 'm.alhamali@nafusah.com',
                 'department' => 'إدارة الاتصالات وتقنية المعلومات',
                 'active' => true,
                 'permissions' => [
@@ -98,7 +101,7 @@ class DatabaseSeeder extends Seeder
             [
                 'id' => 'USR-002',
                 'name' => 'أحمد السعيد',
-                'email' => 'a.alsaeed@company.local',
+                'email' => 'a.alsaeed@nafusah.com',
                 'department' => 'إدارة الاتصالات وتقنية المعلومات',
                 'active' => true,
                 'permissions' => [
@@ -115,13 +118,18 @@ class DatabaseSeeder extends Seeder
             [
                 'id' => 'USR-003',
                 'name' => 'سارة خالد',
-                'email' => 's.khaled@company.local',
+                'email' => 's.khaled@nafusah.com',
                 'department' => 'إدارة الاتصالات وتقنية المعلومات',
                 'active' => false,
                 'permissions' => ['dashboard.devices', 'dashboard.inks', 'devices.view', 'inks.view'],
             ],
         ] as $row) {
-            AppUser::updateOrCreate(['id' => $row['id']], $row);
+            $user = AppUser::withTrashed()->find($row['id']);
+            if ($user) {
+                $user->update(array_merge($row, $user->password ? [] : ['password' => '123456']));
+            } else {
+                AppUser::create(array_merge($row, ['password' => '123456']));
+            }
         }
 
         foreach ([
@@ -143,11 +151,31 @@ class DatabaseSeeder extends Seeder
         }
 
         foreach ([
-            ['id' => 'SUB-001', 'service_name' => 'Microsoft 365 Business Standard', 'provider' => 'شركة التقنية الحديثة', 'category' => 'software', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'seats' => 45, 'annual_cost' => 21600, 'department' => 'كافة الإدارات', 'status' => 'active', 'notes' => 'تجديد سنوي شامل لبريد الموظفين وحزمة أوفيس'],
-            ['id' => 'SUB-002', 'service_name' => 'Fortinet FortiGate UTM Bundle', 'provider' => 'مركز الأنظمة المتكاملة', 'category' => 'security', 'start_date' => '2025-11-25', 'end_date' => '2026-11-25', 'seats' => 2, 'annual_cost' => 14500, 'department' => 'إدارة الاتصالات وتقنية المعلومات', 'status' => 'expiring', 'notes' => 'ترخيص جدار الحماية للمقر الرئيسي والفرع'],
-            ['id' => 'SUB-003', 'service_name' => 'Adobe Creative Cloud Teams', 'provider' => 'مؤسسة الحلول السحابية', 'category' => 'software', 'start_date' => '2025-10-01', 'end_date' => '2026-10-01', 'seats' => 6, 'annual_cost' => 8400, 'department' => 'العلاقات العامة', 'status' => 'expired', 'notes' => 'بانتظار اعتماد عرض السعر للتجديد'],
+            ['id' => 'SUB-001', 'service_name' => 'Microsoft 365 Business Standard', 'provider' => 'شركة التقنية الحديثة', 'category' => 'software', 'po_number' => 'PO-2026-001', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'alert_days_before' => 30, 'seats' => 45, 'annual_cost' => 21600, 'department' => 'I C T', 'status' => 'active', 'cancelled' => false, 'notes' => 'تجديد سنوي شامل لبريد الموظفين وحزمة أوفيس'],
+            ['id' => 'SUB-002', 'service_name' => 'Fortinet FortiGate UTM Bundle', 'provider' => 'مركز الأنظمة المتكاملة', 'category' => 'security', 'po_number' => 'PO-2025-112', 'start_date' => '2025-11-25', 'end_date' => '2026-11-25', 'alert_days_before' => 30, 'seats' => 2, 'annual_cost' => 14500, 'department' => 'I C T', 'status' => 'expiring', 'cancelled' => false, 'notes' => 'ترخيص جدار الحماية للمقر الرئيسي والفرع'],
+            ['id' => 'SUB-003', 'service_name' => 'Adobe Creative Cloud Teams', 'provider' => 'مؤسسة الحلول السحابية', 'category' => 'software', 'po_number' => 'PO-2025-089', 'start_date' => '2025-10-01', 'end_date' => '2026-10-01', 'alert_days_before' => 30, 'seats' => 6, 'annual_cost' => 8400, 'department' => 'TOP MANAGEMENT', 'status' => 'expired', 'cancelled' => false, 'notes' => 'بانتظار اعتماد عرض السعر للتجديد'],
         ] as $row) {
             Subscription::updateOrCreate(['id' => $row['id']], $row);
+        }
+
+        $empFile = database_path('seeders/data/employees.json');
+        if (file_exists($empFile)) {
+            $payload = json_decode((string) file_get_contents($empFile), true);
+            foreach ($payload['departments'] ?? [] as $dept) {
+                Department::updateOrCreate(['id' => $dept['id']], $dept);
+            }
+            foreach ($payload['employees'] ?? [] as $emp) {
+                Employee::withTrashed()->updateOrCreate(['id' => $emp['id']], $emp);
+            }
+        }
+
+        foreach ([
+            'org_name' => 'إدارة الاتصالات وتقنية المعلومات',
+            'admin_name' => 'مدير النظام',
+            'admin_email' => 'it-admin@company.local',
+            'default_ink_threshold' => '3',
+        ] as $key => $value) {
+            AppSetting::firstOrCreate(['key' => $key], ['value' => $value]);
         }
     }
 }

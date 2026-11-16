@@ -2,30 +2,39 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { EnvelopeSimple, Eye, EyeSlash, LockSimple, SignIn, WarningCircle } from '@phosphor-icons/react'
-import { Button, Field, TextInput } from '../../shared/components/ui'
-import { loginWithEmail, quickDemoLogin } from '../../shared/data/auth'
+import { Button, Field, TextInput, Toast } from '../../shared/components/ui'
+import { useAuthStore } from './authStore'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const login = useAuthStore((s) => s.login)
+  const quickDemoLogin = useAuthStore((s) => s.quickDemoLogin)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
+  const [connectionToast, setConnectionToast] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     document.title = 'تسجيل الدخول | إدارة أصول IT'
   }, [])
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
     setSubmitting(true)
 
-    const result = loginWithEmail(email, password, remember)
+    const username = email.trim().replace(/@nafusah\.com$/i, '')
+    const fullEmail = username ? `${username}@nafusah.com` : ''
+    const result = await login(fullEmail, password, remember)
     if (!result.ok) {
-      setError(result.error)
+      if (result.isConnectionError) {
+        setConnectionToast(result.error)
+      } else {
+        setError(result.error)
+      }
       setSubmitting(false)
       return
     }
@@ -41,6 +50,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-8">
+      <Toast message={connectionToast} tone="red" onClose={() => setConnectionToast(null)} />
       <div className="page-transition w-full max-w-[400px]">
         <div className="mb-6 flex flex-col items-center">
           <img
@@ -74,25 +84,31 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <Field label="البريد الإلكتروني">
                 {(id) => (
-                  <div className="relative">
-                    <EnvelopeSimple
-                      className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400"
-                      aria-hidden="true"
-                    />
-                    <TextInput
+                  <div
+                    dir="ltr"
+                    className="flex h-10 w-full items-center overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900"
+                  >
+                    <span className="flex h-full items-center pl-3 text-slate-400" aria-hidden="true">
+                      <EnvelopeSimple className="size-4" />
+                    </span>
+                    <input
                       id={id}
-                      type="email"
-                      dir="ltr"
-                      autoComplete="email"
+                      type="text"
+                      inputMode="email"
+                      autoComplete="username"
                       autoFocus
-                      placeholder="name@company.local"
+
                       value={email}
                       onChange={(e) => {
-                        setEmail(e.target.value)
+                        const val = e.target.value.replace(/@nafusah\.com$/i, '')
+                        setEmail(val)
                         if (error) setError('')
                       }}
-                      className="pr-9 pl-3 text-left"
+                      className="h-full min-w-0 flex-1 bg-transparent px-2 text-left text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
                     />
+                    <span className="flex h-full shrink-0 items-center border-l border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-600 select-none">
+                      @nafusah.com
+                    </span>
                   </div>
                 )}
               </Field>

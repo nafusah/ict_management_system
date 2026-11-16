@@ -14,11 +14,15 @@ import {
   Pagination,
   Pill,
   SearchInput,
+  SearchableSelect,
   SelectInput,
   TextInput,
+  Toast,
   cx,
 } from '../../shared/components/ui'
-import { inkDispensesStore, inksStore, useBrands, useDepartments, useInkColors, useInkDispenses, useInks } from '../../shared/data/store'
+import { getStoredToken } from '../../shared/data/api'
+import { recordAudit, usePermission } from '../../shared/data/auth'
+import { inkDispensesStore, inksStore, syncBatchInkDispenseWithServer, syncInkDispenseWithServer, useBrands, useDepartments, useInkColors, useInkDispenses, useInks } from '../../shared/data/store'
 import { OTHER } from '../../shared/data/options'
 import { isLowStock } from '../../shared/data/types'
 import type { Ink, InkColor, InkColorItem } from '../../shared/data/types'
@@ -45,6 +49,7 @@ function Swatch({ meta }: { meta: InkColorItem }) {
 }
 
 export default function Inks() {
+  const canManage = usePermission('inks.manage')
   const inks = useInks()
   const inkColors = useInkColors()
   const colorMap = useMemo(() => Object.fromEntries(inkColors.map((c) => [c.id, c])), [inkColors])
@@ -54,6 +59,8 @@ export default function Inks() {
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Ink | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Ink | null>(null)
+  const [batchOpen, setBatchOpen] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   const viewing = useMemo(() => inks.find((i) => i.id === viewingId) ?? null, [inks, viewingId])
 
@@ -90,10 +97,18 @@ export default function Inks() {
         title="مخزون الأحبار"
         description="كميات خراطيش الأحبار الأربعة، مع تنبيه عند وصول أي صنف إلى حد الطلب."
         action={
-          <Button variant="primary" onClick={() => setEditing('new')}>
-            <Plus className="size-4" />
-            إضافة صنف حبر
-          </Button>
+          canManage ? (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => setBatchOpen(true)}>
+                <ArrowUpFromLine className="size-4" />
+                صرف لإدارة
+              </Button>
+              <Button variant="primary" onClick={() => setEditing('new')}>
+                <Plus className="size-4" />
+                إضافة صنف حبر
+              </Button>
+            </div>
+          ) : undefined
         }
       />
 
@@ -183,16 +198,20 @@ export default function Inks() {
                         >
                           التفاصيل
                         </Button>
-                        <IconButton label={`تعديل ${ink.model}`} onClick={() => setEditing(ink)}>
-                          <Pencil className="size-4" />
-                        </IconButton>
-                        <IconButton
-                          label={`حذف ${ink.model}`}
-                          className="hover:bg-red-50 hover:text-red-700"
-                          onClick={() => setDeleting(ink)}
-                        >
-                          <Trash2 className="size-4" />
-                        </IconButton>
+                        {canManage && (
+                          <>
+                            <IconButton label={`تعديل ${ink.model}`} onClick={() => setEditing(ink)}>
+                              <Pencil className="size-4" />
+                            </IconButton>
+                            <IconButton
+                              label={`حذف ${ink.model}`}
+                              className="hover:bg-red-50 hover:text-red-700"
+                              onClick={() => setDeleting(ink)}
+                            >
+                              <Trash2 className="size-4" />
+                            </IconButton>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -235,17 +254,39 @@ export default function Inks() {
         />
       )}
 
-      {editing && <InkForm ink={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {editing && (
+        <InkForm
+          ink={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSuccess={(msg) => setToast(msg)}
+        />
+      )}
 
       <ConfirmDelete
         open={deleting !== null}
         itemName={deleting?.model ?? ''}
         onCancel={() => setDeleting(null)}
         onConfirm={() => {
-          if (deleting) inksStore.remove(deleting.id)
+          if (deleting) {
+            inksStore.remove(deleting.id)
+            recordAudit('deleted', 'ink', `حذف صنف حبر: ${deleting.model}`, deleting.id)
+            setToast(`تم حذف "${deleting.model}" بنجاح`)
+          }
           setDeleting(null)
         }}
       />
+
+      {batchOpen && (
+        <BatchDispenseModal
+          onClose={() => setBatchOpen(false)}
+          onSuccess={(msg) => {
+            setBatchOpen(false)
+            setToast(msg)
+          }}
+        />
+      )}
+
+      <Toast message={toast} tone="green" onClose={() => setToast(null)} />
     </>
   )
 }
@@ -259,6 +300,7 @@ function InkDetailsModal({
   onClose: () => void
   onEdit: () => void
 }) {
+  const canManage = usePermission('inks.manage')
   const inkColors = useInkColors()
   const departments = useDepartments()
   const deptNames = useMemo(() => departments.map((d) => d.name), [departments])
@@ -296,15 +338,21 @@ function InkDetailsModal({
     const nextQuantity =
       mode === 'dispense' ? Math.max(0, ink.quantity - parsed) : ink.quantity + parsed
 
-    inksStore.update({ ...ink, quantity: nextQuantity })
-
     if (mode === 'dispense') {
-      inkDispensesStore.add({
-        inkId: ink.id,
-        department: chosenDept,
-        quantity: parsed,
-        date: new Date().toISOString().slice(0, 10),
-      })
+      const today = new Date().toISOString().slice(0, 10)
+      if (getStoredToken()) {
+        inksStore.setAll(inksStore.getAll().map((i) => (i.id === ink.id ? { ...i, quantity: nextQuantity } : i)))
+        syncInkDispenseWithServer(ink.id, chosenDept, parsed, today)
+      } else {
+        inksStore.update({ ...ink, quantity: nextQuantity })
+        inkDispensesStore.add({
+          inkId: ink.id,
+          department: chosenDept,
+          quantity: parsed,
+          date: today,
+        })
+        recordAudit('dispensed', 'ink', `صرف ${parsed} من (${ink.model}) إلى «${chosenDept}»`, ink.id)
+      }
       setNotice(`تم صرف ${parsed} لإدارة «${chosenDept}». الكمية المتبقية الآن: ${nextQuantity}`)
       if (nextQuantity === 0) {
         setAmountStr('1')
@@ -312,6 +360,8 @@ function InkDetailsModal({
         setAmountStr(String(nextQuantity))
       }
     } else {
+      inksStore.update({ ...ink, quantity: nextQuantity })
+      recordAudit('restocked', 'ink', `توريد ${parsed} من (${ink.model}) — المتوفر: ${nextQuantity}`, ink.id)
       setNotice(`تمت إضافة ${parsed} إلى المخزون. الكمية المتوفرة الآن: ${nextQuantity}`)
     }
   }
@@ -324,10 +374,14 @@ function InkDetailsModal({
       description="استعرض بيانات الحبر، وقم بصرف الخراطيش أو إضافة كميات جديدة للمخزون."
       footer={
         <div className="flex w-full items-center justify-between gap-2">
-          <Button onClick={onEdit}>
-            <Pencil className="size-4" />
-            تعديل بيانات الصنف
-          </Button>
+          {canManage ? (
+            <Button onClick={onEdit}>
+              <Pencil className="size-4" />
+              تعديل بيانات الصنف
+            </Button>
+          ) : (
+            <span />
+          )}
           <Button variant="secondary" onClick={onClose}>
             إغلاق
           </Button>
@@ -383,6 +437,7 @@ function InkDetailsModal({
         </div>
 
         {/* قسم صرف أو إضافة الأحبار */}
+        {canManage && (
         <form onSubmit={handleTransaction} noValidate className="rounded-xl border border-slate-200 p-4">
           <fieldset>
             <legend className="mb-3 text-sm font-bold text-slate-900">عملية على المخزون</legend>
@@ -427,14 +482,15 @@ function InkDetailsModal({
               <div className={dept === OTHER ? '' : 'sm:col-span-2'}>
                 <Field label="الإدارة المستلمة">
                   {(id) => (
-                    <SelectInput
+                    <SearchableSelect
                       id={id}
                       value={dept}
-                      onChange={(e) => {
-                        setDept(e.target.value)
+                      onChange={(nextDept) => {
+                        setDept(nextDept)
                         setNotice(null)
                       }}
                       options={[...deptNames, OTHER].map((d) => ({ value: d, label: d }))}
+                      searchPlaceholder="ابحث عن إدارة..."
                     />
                   )}
                 </Field>
@@ -521,6 +577,7 @@ function InkDetailsModal({
             </p>
           )}
         </form>
+        )}
 
         {inkDispenses.length > 0 && (
           <div className="rounded-xl border border-slate-200 p-4">
@@ -543,7 +600,15 @@ function InkDetailsModal({
   )
 }
 
-function InkForm({ ink, onClose }: { ink: Ink | null; onClose: () => void }) {
+function InkForm({
+  ink,
+  onClose,
+  onSuccess,
+}: {
+  ink: Ink | null
+  onClose: () => void
+  onSuccess: (msg: string) => void
+}) {
   const inkColors = useInkColors()
   const brands = useBrands()
   const brandOptions = useMemo(
@@ -581,8 +646,15 @@ function InkForm({ ink, onClose }: { ink: Ink | null; onClose: () => void }) {
       quantity: Number(quantity),
       alertThreshold: Number(threshold),
     }
-    if (isEdit) inksStore.update({ ...data, id: ink.id })
-    else inksStore.add(data)
+    if (isEdit) {
+      inksStore.update({ ...data, id: ink.id })
+      recordAudit('updated', 'ink', `تعديل صنف حبر: ${data.model}`, ink.id)
+      onSuccess('تم حفظ تعديلات الحبر بنجاح')
+    } else {
+      inksStore.add(data)
+      recordAudit('created', 'ink', `إضافة صنف حبر: ${data.model} (الكمية: ${data.quantity})`)
+      onSuccess('تمت إضافة صنف الحبر بنجاح')
+    }
     onClose()
   }
 
@@ -699,6 +771,233 @@ function InkForm({ ink, onClose }: { ink: Ink | null; onClose: () => void }) {
             />
           )}
         </Field>
+      </form>
+    </Modal>
+  )
+}
+
+function BatchDispenseModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void
+  onSuccess: (msg: string) => void
+}) {
+  const inks = useInks()
+  const departments = useDepartments()
+  const inkColors = useInkColors()
+  const availableInks = useMemo(() => inks.filter((i) => i.quantity > 0), [inks])
+  const deptNames = useMemo(() => departments.map((d) => d.name), [departments])
+
+  const [dept, setDept] = useState<string>(deptNames[0] ?? OTHER)
+  const [customDept, setCustomDept] = useState('')
+  const [rows, setRows] = useState<{ key: number; inkId: string; quantity: string }[]>(() => [
+    { key: 1, inkId: availableInks[0]?.id ?? '', quantity: '1' },
+  ])
+  const [error, setError] = useState('')
+
+  const chosenDept = dept === OTHER ? customDept.trim() : dept
+
+  const addRow = () => {
+    const used = new Set(rows.map((r) => r.inkId))
+    const nextInk = availableInks.find((i) => !used.has(i.id)) ?? availableInks[0]
+    if (!nextInk) return
+    setRows((prev) => [...prev, { key: Date.now() + Math.random(), inkId: nextInk.id, quantity: '1' }])
+    setError('')
+  }
+
+  const removeRow = (key: number) => {
+    setRows((prev) => prev.filter((r) => r.key !== key))
+    setError('')
+  }
+
+  const updateRow = (key: number, patch: Partial<{ inkId: string; quantity: string }>) => {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)))
+    setError('')
+  }
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (!chosenDept) {
+      setError('يرجى تحديد الإدارة المستلمة.')
+      return
+    }
+    if (rows.length === 0) {
+      setError('أضف صنف حبر واحداً على الأقل.')
+      return
+    }
+
+    const totals = new Map<string, number>()
+    for (const r of rows) {
+      if (!r.inkId) {
+        setError('يرجى اختيار صنف الحبر في كل سطر.')
+        return
+      }
+      const qty = parseInt(r.quantity, 10)
+      if (isNaN(qty) || qty <= 0) {
+        setError('يجب أن تكون الكمية رقماً أكبر من صفر.')
+        return
+      }
+      totals.set(r.inkId, (totals.get(r.inkId) ?? 0) + qty)
+    }
+
+    for (const [inkId, totalQty] of totals.entries()) {
+      const ink = inks.find((i) => i.id === inkId)
+      if (!ink) {
+        setError('أحد أصناف الحبر غير موجود.')
+        return
+      }
+      if (totalQty > ink.quantity) {
+        setError(`الكمية المطلوبة من (${ink.model}) أكبر من المتوفر (${ink.quantity}).`)
+        return
+      }
+    }
+
+    const items = Array.from(totals.entries()).map(([inkId, quantity]) => ({ inkId, quantity }))
+    const today = new Date().toISOString().slice(0, 10)
+
+    inksStore.setAll(
+      inksStore.getAll().map((ink) => {
+        const deducted = totals.get(ink.id)
+        return deducted ? { ...ink, quantity: Math.max(0, ink.quantity - deducted) } : ink
+      }),
+    )
+
+    if (getStoredToken()) {
+      syncBatchInkDispenseWithServer(chosenDept, items, today)
+    } else {
+      const parts: string[] = []
+      for (const { inkId, quantity } of items) {
+        const ink = inks.find((i) => i.id === inkId)
+        inkDispensesStore.add({ inkId, department: chosenDept, quantity, date: today })
+        if (ink) parts.push(`${quantity} × ${ink.model}`)
+      }
+      recordAudit('dispensed', 'ink', `صرف مجمع إلى ${chosenDept}: ${parts.join('، ')}`)
+    }
+
+    onSuccess(`تم صرف ${items.length} أصناف حبر لإدارة «${chosenDept}» بنجاح`)
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="صرف أكثر من نوع حبر لإدارة"
+      description="اختر الإدارة المستلمة ثم أضف أصناف الأحبار والكميات المطلوب صرفها دفعة واحدة."
+      footer={
+        <>
+          <Button onClick={onClose}>إلغاء</Button>
+          <Button
+            variant="primary"
+            type="submit"
+            form="batch-dispense-form"
+            disabled={availableInks.length === 0}
+          >
+            تأكيد الصرف
+          </Button>
+        </>
+      }
+    >
+      <form id="batch-dispense-form" onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {error}
+          </p>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className={dept === OTHER ? '' : 'sm:col-span-2'}>
+            <Field label="الإدارة المستلمة">
+              {(id) => (
+                <SearchableSelect
+                  id={id}
+                  value={dept}
+                  onChange={setDept}
+                  options={[...deptNames, OTHER].map((d) => ({ value: d, label: d }))}
+                  searchPlaceholder="ابحث عن إدارة..."
+                />
+              )}
+            </Field>
+          </div>
+          {dept === OTHER && (
+            <Field label="اسم الإدارة">
+              {(id) => (
+                <TextInput
+                  id={id}
+                  value={customDept}
+                  onChange={(e) => setCustomDept(e.target.value)}
+                  placeholder="اكتب اسم الإدارة المستلمة"
+                />
+              )}
+            </Field>
+          )}
+        </div>
+
+        <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700">أصناف الأحبار ({rows.length})</span>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-8 px-2.5 text-xs"
+              disabled={availableInks.length === 0}
+              onClick={addRow}
+            >
+              <Plus className="size-3.5" />
+              إضافة صنف آخر
+            </Button>
+          </div>
+
+          {availableInks.length === 0 ? (
+            <p className="py-4 text-center text-xs text-slate-500">لا توجد أحبار متوفرة في المخزون حالياً.</p>
+          ) : (
+            <div className="space-y-2">
+              {rows.map((r) => {
+                const selectedInk = availableInks.find((i) => i.id === r.inkId)
+                return (
+                  <div key={r.key} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="min-w-0 flex-1">
+                      <SearchableSelect
+                        value={r.inkId}
+                        onChange={(inkId) => updateRow(r.key, { inkId })}
+                        options={availableInks.map((i) => {
+                          const cName = inkColors.find((c) => c.id === i.color)?.name ?? i.color
+                          return {
+                            value: i.id,
+                            label: `${i.model} — ${cName} (المتوفر: ${i.quantity})`,
+                          }
+                        })}
+                        searchPlaceholder="ابحث عن موديل الحبر..."
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <TextInput
+                        type="number"
+                        min={1}
+                        max={selectedInk?.quantity ?? 999}
+                        value={r.quantity}
+                        onChange={(e) => updateRow(r.key, { quantity: e.target.value })}
+                        className="w-24 text-center font-bold tabular-nums"
+                        aria-label="الكمية"
+                      />
+                      {rows.length > 1 && (
+                        <IconButton
+                          label="إزالة الصنف"
+                          className="hover:bg-red-50 hover:text-red-700"
+                          onClick={() => removeRow(r.key)}
+                        >
+                          <Trash2 className="size-4" />
+                        </IconButton>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </form>
     </Modal>
   )

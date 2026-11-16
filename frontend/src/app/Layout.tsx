@@ -4,22 +4,26 @@ import {
   Bell,
   BookOpen,
   CheckCircle,
+  ClockCounterClockwise,
   DesktopTower,
   Drop,
   Gear,
   IdentificationCard,
   Key,
   List,
+  LockSimple,
   SignOut,
   SquaresFour,
   Users,
   Warning,
   X,
 } from '@phosphor-icons/react'
-import { logout, useAuth } from '../shared/data/auth'
+import { useAuthStore } from '../features/auth/authStore'
+import { logout, useAuth, useCurrentPermissions } from '../shared/data/auth'
 import { useInkColors, useInks, useSubscriptions } from '../shared/data/store'
 import { daysUntilExpiry, getSubscriptionStatus, isLowStock } from '../shared/data/types'
-import { Button, Modal, Pill, cx } from '../shared/components/ui'
+import type { Permission } from '../shared/data/types'
+import { Button, Field, Modal, Pill, TextInput, Toast, cx } from '../shared/components/ui'
 
 type NavItem = {
   to: string
@@ -28,20 +32,51 @@ type NavItem = {
   indent?: boolean
   end?: boolean
   matchPrefix?: string
+  permissions?: Permission[]
 }
 
 const NAV: NavItem[] = [
-  { to: '/', label: 'لوحة التحكم', icon: SquaresFour },
-  { to: '/devices', label: 'الأجهزة', icon: DesktopTower },
-  { to: '/inks', label: 'مخزون الأحبار', icon: Drop },
-  { to: '/subscriptions', label: 'الاشتراكات والتراخيص', icon: Key },
+  {
+    to: '/',
+    label: 'لوحة التحكم',
+    icon: SquaresFour,
+    permissions: ['dashboard.devices', 'dashboard.inks', 'dashboard.subscriptions'],
+  },
+  { to: '/devices', label: 'الأجهزة', icon: DesktopTower, permissions: ['devices.view', 'devices.manage'] },
+  { to: '/inks', label: 'مخزون الأحبار', icon: Drop, permissions: ['inks.view', 'inks.manage'] },
+  {
+    to: '/subscriptions',
+    label: 'الاشتراكات والتراخيص',
+    icon: Key,
+    permissions: ['subscriptions.view', 'subscriptions.manage'],
+  },
 ]
 
 const BOTTOM_NAV: NavItem[] = [
-  { to: '/settings', label: 'الإعدادات', icon: Gear, end: true },
-  { to: '/settings/users', label: 'المستخدمين', icon: Users, indent: true },
-  { to: '/settings/employees', label: 'الموظفين', icon: IdentificationCard, indent: true },
-  { to: '/dictionary/device-types', label: 'القاموس', icon: BookOpen, indent: true, matchPrefix: '/dictionary' },
+  { to: '/settings', label: 'الإعدادات', icon: Gear, end: true, permissions: ['settings.manage'] },
+  { to: '/settings/users', label: 'المستخدمين', icon: Users, indent: true, permissions: ['settings.manage'] },
+  {
+    to: '/settings/employees',
+    label: 'الموظفين',
+    icon: IdentificationCard,
+    indent: true,
+    permissions: ['employees.manage', 'settings.manage'],
+  },
+  {
+    to: '/settings/audit-logs',
+    label: 'سجل التدقيق',
+    icon: ClockCounterClockwise,
+    indent: true,
+    permissions: ['settings.manage'],
+  },
+  {
+    to: '/dictionary/device-types',
+    label: 'القاموس',
+    icon: BookOpen,
+    indent: true,
+    matchPrefix: '/dictionary',
+    permissions: ['dictionary.deviceTypes', 'dictionary.inkColors', 'dictionary.brands', 'dictionary.services'],
+  },
 ]
 
 function SidebarLink({
@@ -88,6 +123,13 @@ function SidebarLink({
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const userPerms = useCurrentPermissions()
+  const canSee = (item: NavItem) =>
+    !item.permissions || item.permissions.some((p) => userPerms.includes(p))
+
+  const visibleNav = NAV.filter(canSee)
+  const visibleBottom = BOTTOM_NAV.filter(canSee)
+
   return (
     <nav aria-label="القائمة الرئيسية" className="flex h-full flex-col bg-slate-900 text-slate-400">
       <div className="flex h-16 items-center justify-center border-b border-slate-800 px-5">
@@ -98,17 +140,19 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         />
       </div>
       <ul className="flex flex-1 flex-col gap-1 p-2">
-        {NAV.map((item) => (
+        {visibleNav.map((item) => (
           <SidebarLink key={`${item.label}-${item.to}`} item={item} onNavigate={onNavigate} />
         ))}
       </ul>
-      <div className="border-t border-slate-800 p-2">
-        <ul className="flex flex-col gap-1">
-          {BOTTOM_NAV.map((item) => (
-            <SidebarLink key={item.to} item={item} onNavigate={onNavigate} />
-          ))}
-        </ul>
-      </div>
+      {visibleBottom.length > 0 && (
+        <div className="border-t border-slate-800 p-2">
+          <ul className="flex flex-col gap-1">
+            {visibleBottom.map((item) => (
+              <SidebarLink key={item.to} item={item} onNavigate={onNavigate} />
+            ))}
+          </ul>
+        </div>
+      )}
     </nav>
   )
 }
@@ -116,6 +160,8 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [pwdOpen, setPwdOpen] = useState(false)
+  const [pwdToast, setPwdToast] = useState<string | null>(null)
   const [lowStockAlertOpen, setLowStockAlertOpen] = useState(() => {
     if (typeof window === 'undefined') return false
     return sessionStorage.getItem('it-low-stock-alert-seen') !== '1'
@@ -239,6 +285,15 @@ export default function Layout() {
               </span>
               <span className="text-xs font-bold">{session?.name ?? 'مدير النظام'}</span>
             </div>
+            <button
+              type="button"
+              aria-label="تغيير كلمة المرور"
+              title="تغيير كلمة المرور"
+              onClick={() => setPwdOpen(true)}
+              className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-900"
+            >
+              <LockSimple className="size-4" />
+            </button>
             <button
               type="button"
               aria-label="الإشعارات"
@@ -388,6 +443,125 @@ export default function Layout() {
           </ul>
         </div>
       </Modal>
+
+      <ChangePasswordModal
+        open={pwdOpen}
+        onClose={() => setPwdOpen(false)}
+        onSuccess={() => {
+          setPwdOpen(false)
+          setPwdToast('تم تغيير كلمة المرور بنجاح')
+        }}
+      />
+
+      <Toast message={pwdToast} tone="green" onClose={() => setPwdToast(null)} />
     </div>
+  )
+}
+
+function ChangePasswordModal({
+  open,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const changePassword = useAuthStore((s) => s.changePassword)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setError('')
+    setSaving(false)
+  }, [open])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (newPassword.length < 4) {
+      setError('كلمة المرور الجديدة يجب أن تكون 4 أحرف على الأقل.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('كلمتا المرور غير متطابقتين.')
+      return
+    }
+    setSaving(true)
+    const res = await changePassword(currentPassword, newPassword)
+    setSaving(false)
+    if (!res.ok) {
+      setError(res.error)
+      return
+    }
+    onSuccess()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="sm"
+      title="تغيير كلمة المرور"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            إلغاء
+          </Button>
+          <Button variant="primary" type="submit" form="change-pwd-form" disabled={saving}>
+            {saving ? 'جارٍ الحفظ...' : 'حفظ كلمة المرور'}
+          </Button>
+        </>
+      }
+    >
+      <form id="change-pwd-form" onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+        {error && (
+          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {error}
+          </p>
+        )}
+        <Field label="كلمة المرور الحالية">
+          {(id) => (
+            <TextInput
+              id={id}
+              type="password"
+              dir="ltr"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoFocus
+            />
+          )}
+        </Field>
+        <Field label="كلمة المرور الجديدة">
+          {(id) => (
+            <TextInput
+              id={id}
+              type="password"
+              dir="ltr"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="تأكيد كلمة المرور الجديدة">
+          {(id) => (
+            <TextInput
+              id={id}
+              type="password"
+              dir="ltr"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          )}
+        </Field>
+      </form>
+    </Modal>
   )
 }

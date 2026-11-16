@@ -16,6 +16,7 @@ import {
   cx,
 } from '../../shared/components/ui'
 import { SettingsTabs } from './components/SettingsTabs'
+import { recordAudit } from '../../shared/data/auth'
 import { departmentsStore, employeesStore, useDepartments, useEmployees } from '../../shared/data/store'
 import type { DepartmentItem, EmployeeItem } from '../../shared/data/types'
 
@@ -65,6 +66,7 @@ export default function Employees() {
       return
     }
     departmentsStore.remove(dept.id)
+    recordAudit('deleted', 'department', `حذف إدارة: ${dept.name}`, dept.id)
     if (deptFilter === dept.name) setDeptFilter('all')
     setDeletingDept(null)
     setToast(`تم حذف إدارة "${dept.name}".`)
@@ -334,6 +336,7 @@ export default function Employees() {
         onConfirm={() => {
           if (deletingEmp) {
             employeesStore.remove(deletingEmp.id)
+            recordAudit('deleted', 'employee', `حذف الموظف: ${deletingEmp.name} (${deletingEmp.department})`, deletingEmp.id)
             setToast(`تم حذف "${deletingEmp.name}".`)
             setDeletingEmp(null)
           }
@@ -384,9 +387,11 @@ function DepartmentModal({
 
     if (department) {
       departmentsStore.update({ ...department, name: trimmed })
+      recordAudit('updated', 'department', `تعديل اسم الإدارة من «${department.name}» إلى «${trimmed}»`, department.id)
       onSaved(`تم تحديث إدارة "${trimmed}".`, department.name, trimmed)
     } else {
       departmentsStore.add({ name: trimmed })
+      recordAudit('created', 'department', `إضافة إدارة: ${trimmed}`)
       onSaved(`تمت إضافة إدارة "${trimmed}".`)
     }
   }
@@ -463,9 +468,11 @@ function EmployeeModal({
 
     if (employee) {
       employeesStore.update({ ...employee, name: trimmedName, department })
+      recordAudit('updated', 'employee', `تعديل بيانات الموظف: ${trimmedName} (${department})`, employee.id)
       onSaved(`تم تحديث بيانات "${trimmedName}".`)
     } else {
       employeesStore.add({ name: trimmedName, department })
+      recordAudit('created', 'employee', `إضافة موظف: ${trimmedName} (${department})`)
       onSaved(`تمت إضافة "${trimmedName}".`)
     }
   }

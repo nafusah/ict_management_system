@@ -18,12 +18,15 @@ class SubscriptionController extends CrudController
             'service_name' => ['required', 'string', 'max:255'],
             'provider' => ['required', 'string', 'max:255'],
             'category' => ['required', Rule::in(['software', 'cloud', 'security', 'network', 'other'])],
+            'po_number' => ['nullable', 'string', 'max:255'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
-            'seats' => ['required', 'integer', 'min:1'],
-            'annual_cost' => ['required', 'numeric', 'min:0'],
+            'alert_days_before' => ['sometimes', 'integer', 'min:0'],
+            'seats' => ['sometimes', 'integer', 'min:1'],
+            'annual_cost' => ['sometimes', 'numeric', 'min:0'],
             'department' => ['required', 'string', 'max:255'],
-            'status' => ['required', Rule::in(['active', 'expiring', 'expired', 'cancelled'])],
+            'status' => ['sometimes', Rule::in(['active', 'expiring', 'expired', 'cancelled'])],
+            'cancelled' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
         ];
     }

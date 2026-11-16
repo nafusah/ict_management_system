@@ -534,10 +534,20 @@ export function Toast({
   onClose: () => void
   duration?: number
 }) {
+  const [closing, setClosing] = useState(false)
+
   useEffect(() => {
-    if (!message) return
-    const timer = setTimeout(onClose, duration)
-    return () => clearTimeout(timer)
+    if (!message) {
+      setClosing(false)
+      return
+    }
+    setClosing(false)
+    const exitTimer = setTimeout(() => setClosing(true), Math.max(400, duration - 220))
+    const closeTimer = setTimeout(onClose, duration)
+    return () => {
+      clearTimeout(exitTimer)
+      clearTimeout(closeTimer)
+    }
   }, [message, onClose, duration])
 
   if (!message) return null
@@ -547,7 +557,8 @@ export function Toast({
       role="status"
       aria-live="polite"
       className={cx(
-        'toast-enter fixed top-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold shadow-lg',
+        'fixed top-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold shadow-lg',
+        closing ? 'toast-exit' : 'toast-enter',
         pillTones[tone],
       )}
     >

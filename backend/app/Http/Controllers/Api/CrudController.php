@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppUser;
+use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +17,26 @@ abstract class CrudController extends Controller
 
     /** @return array<string, mixed> */
     abstract protected function rules(?string $id = null): array;
+
+    protected function entityType(): string
+    {
+        return Str::snake(class_basename($this->modelClass()));
+    }
+
+    protected function itemLabel(Model $item): string
+    {
+        return (string) ($item->getAttribute('name')
+            ?? $item->getAttribute('label')
+            ?? $item->getAttribute('model')
+            ?? $item->getAttribute('service_name')
+            ?? $item->getKey());
+    }
+
+    protected function currentUser(Request $request): ?AppUser
+    {
+        /** @var AppUser|null */
+        return $request->attributes->get('app_user');
+    }
 
     public function index(): JsonResponse
     {
@@ -32,6 +54,17 @@ abstract class CrudController extends Controller
         $class = $this->modelClass();
         $item = $class::create($validated);
 
+        AuditLog::record(
+            $this->currentUser($request),
+            'created',
+            $this->entityType(),
+            (string) $item->getKey(),
+            'إضافة: '.$this->itemLabel($item),
+            null,
+            $item->toArray(),
+            $request,
+        );
+
         return response()->json($this->toCamel($item->toArray()), 201);
     }
 
@@ -39,19 +72,45 @@ abstract class CrudController extends Controller
     {
         $class = $this->modelClass();
         $item = $class::findOrFail($id);
+        $before = $item->toArray();
 
         $snakeInput = $this->toSnake($request->all());
         $validated = validator($snakeInput, $this->rules($id))->validate();
         $item->update($validated);
+        $after = $item->fresh()->toArray();
 
-        return response()->json($this->toCamel($item->fresh()->toArray()));
+        AuditLog::record(
+            $this->currentUser($request),
+            'updated',
+            $this->entityType(),
+            (string) $item->getKey(),
+            'تعديل: '.$this->itemLabel($item),
+            $before,
+            $after,
+            $request,
+        );
+
+        return response()->json($this->toCamel($after));
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
         $class = $this->modelClass();
         $item = $class::findOrFail($id);
+        $before = $item->toArray();
+        $label = $this->itemLabel($item);
         $item->delete();
+
+        AuditLog::record(
+            $this->currentUser($request),
+            'deleted',
+            $this->entityType(),
+            $id,
+            'حذف: '.$label,
+            $before,
+            null,
+            $request,
+        );
 
         return response()->json(['deleted' => true]);
     }

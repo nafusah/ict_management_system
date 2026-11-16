@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
+import { ShieldAlert } from 'lucide-react'
 import Layout from './Layout'
 import LoginPage from '../features/auth/LoginPage'
 import Brands from '../features/dictionary/BrandsPage'
@@ -8,11 +9,13 @@ import Devices from '../features/devices/DevicesPage'
 import InkColors from '../features/dictionary/InkColorsPage'
 import Inks from '../features/inks/InksPage'
 import ServicesSettings from '../features/dictionary/ServicesSettingsPage'
+import AuditLogs from '../features/settings/AuditLogsPage'
+import Employees from '../features/settings/EmployeesPage'
 import Settings from '../features/settings/SettingsPage'
 import Subscriptions from '../features/subscriptions/SubscriptionsPage'
-import Employees from '../features/settings/EmployeesPage'
 import Users from '../features/settings/UsersPage'
-import { useAuth } from '../shared/data/auth'
+import { useAuth, usePermission } from '../shared/data/auth'
+import type { Permission } from '../shared/data/types'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const session = useAuth()
@@ -23,6 +26,36 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function GuestOnly({ children }: { children: React.ReactNode }) {
   const session = useAuth()
   if (session) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
+function RequirePermission({
+  allow,
+  children,
+}: {
+  allow: Permission[]
+  children: React.ReactNode
+}) {
+  const allowed = usePermission(allow)
+  if (!allowed) {
+    return (
+      <div className="mx-auto my-12 max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xs">
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+          <ShieldAlert className="size-6" />
+        </div>
+        <h1 className="text-lg font-bold text-slate-900">غير مصرح بالوصول</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          ليس لديك الصلاحية المطلوبة لعرض هذه الصفحة. تواصل مع مدير النظام لتعديل صلاحياتك.
+        </p>
+        <Link
+          to="/"
+          className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+        >
+          العودة للوحة التحكم
+        </Link>
+      </div>
+    )
+  }
   return <>{children}</>
 }
 
@@ -46,17 +79,95 @@ export default function App() {
           }
         >
           <Route index element={<Dashboard />} />
-          <Route path="devices" element={<Devices />} />
-          <Route path="inks" element={<Inks />} />
-          <Route path="subscriptions" element={<Subscriptions />} />
+          <Route
+            path="devices"
+            element={
+              <RequirePermission allow={['devices.view', 'devices.manage']}>
+                <Devices />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="inks"
+            element={
+              <RequirePermission allow={['inks.view', 'inks.manage']}>
+                <Inks />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="subscriptions"
+            element={
+              <RequirePermission allow={['subscriptions.view', 'subscriptions.manage']}>
+                <Subscriptions />
+              </RequirePermission>
+            }
+          />
           <Route path="dictionary" element={<Navigate to="/dictionary/device-types" replace />} />
-          <Route path="dictionary/device-types" element={<DeviceTypes />} />
-          <Route path="dictionary/ink-colors" element={<InkColors />} />
-          <Route path="dictionary/brands" element={<Brands />} />
-          <Route path="dictionary/services" element={<ServicesSettings />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="settings/users" element={<Users />} />
-          <Route path="settings/employees" element={<Employees />} />
+          <Route
+            path="dictionary/device-types"
+            element={
+              <RequirePermission allow={['dictionary.deviceTypes']}>
+                <DeviceTypes />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="dictionary/ink-colors"
+            element={
+              <RequirePermission allow={['dictionary.inkColors']}>
+                <InkColors />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="dictionary/brands"
+            element={
+              <RequirePermission allow={['dictionary.brands']}>
+                <Brands />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="dictionary/services"
+            element={
+              <RequirePermission allow={['dictionary.services']}>
+                <ServicesSettings />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <RequirePermission allow={['settings.manage']}>
+                <Settings />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="settings/users"
+            element={
+              <RequirePermission allow={['settings.manage']}>
+                <Users />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="settings/employees"
+            element={
+              <RequirePermission allow={['employees.manage', 'settings.manage']}>
+                <Employees />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="settings/audit-logs"
+            element={
+              <RequirePermission allow={['settings.manage']}>
+                <AuditLogs />
+              </RequirePermission>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

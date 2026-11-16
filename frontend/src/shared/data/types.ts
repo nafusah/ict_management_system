@@ -81,9 +81,23 @@ export interface AppUser {
   id: string
   name: string
   email: string
+  password?: string
   department: string
   active: boolean
   permissions: Permission[]
+}
+
+export type AuditAction = 'created' | 'updated' | 'deleted' | 'dispensed' | 'restocked' | 'login' | 'logout'
+
+export interface AuditLogItem {
+  id: string
+  userId?: string
+  userName: string
+  action: AuditAction
+  entityType: string
+  entityId?: string
+  summary: string
+  createdAt: string
 }
 
 export interface DepartmentItem {

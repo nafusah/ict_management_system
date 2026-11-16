@@ -1,5 +1,42 @@
-import { create } from 'zustand'
+import { createCollection } from '../../shared/data/createCollection'
+import {
+  SEED_BRANDS,
+  SEED_DEVICE_TYPES,
+  SEED_INK_COLORS,
+  SEED_PROVIDERS,
+  SEED_SERVICES,
+} from '../../shared/data/seed'
+import type {
+  BrandItem,
+  DeviceTypeItem,
+  InkColorItem,
+  ServiceItem,
+  ServiceProviderItem,
+} from '../../shared/data/types'
 
-export type DictionaryState = object
+export const deviceTypesStore = createCollection<DeviceTypeItem>(
+  'device-types',
+  'TYPE',
+  SEED_DEVICE_TYPES,
+  '/dictionary/device-types',
+)
+export const inkColorsStore = createCollection<InkColorItem>(
+  'ink-colors',
+  'CLR',
+  SEED_INK_COLORS,
+  '/dictionary/ink-colors',
+)
+export const brandsStore = createCollection<BrandItem>('brands', 'BRD', SEED_BRANDS, '/dictionary/brands')
+export const servicesStore = createCollection<ServiceItem>('services', 'SRV', SEED_SERVICES, '/dictionary/services')
+export const providersStore = createCollection<ServiceProviderItem>(
+  'providers',
+  'PRV',
+  SEED_PROVIDERS,
+  '/dictionary/providers',
+)
 
-export const useDictionaryStore = create<DictionaryState>()(() => ({}))
+export const useDeviceTypes = () => deviceTypesStore.useStore((s) => s.items)
+export const useInkColors = () => inkColorsStore.useStore((s) => s.items)
+export const useBrands = () => brandsStore.useStore((s) => s.items)
+export const useServices = () => servicesStore.useStore((s) => s.items)
+export const useProviders = () => providersStore.useStore((s) => s.items)
