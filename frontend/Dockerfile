@@ -10,4 +10,7 @@ RUN npm run build
 FROM nginx:1.27-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
+
+ENV API_UPSTREAM=http://localhost:8000
 EXPOSE 80
