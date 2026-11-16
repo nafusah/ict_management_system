@@ -42,8 +42,8 @@ function Swatch({ meta }: { meta: InkColorItem }) {
   return (
     <span
       aria-hidden
-      className="inline-block size-3 shrink-0 rounded-full ring-2 ring-white"
-      style={{ background: meta.primary, boxShadow: `0 0 0 3px ${meta.border}` }}
+      className="inline-block size-3 shrink-0 rounded-full"
+      style={{ background: meta.primary }}
     />
   )
 }

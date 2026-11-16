@@ -313,11 +313,11 @@ export function FilterChip({
       aria-pressed={active}
       onClick={onClick}
       className={cx(
-        'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
+        'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900',
         active
-          ? 'border-slate-900 bg-slate-900 text-white'
-          : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400',
+          ? 'bg-slate-900 text-white'
+          : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70',
       )}
     >
       {children}
