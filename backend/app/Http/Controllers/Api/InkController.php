@@ -43,11 +43,19 @@ class InkController extends CrudController
     {
         $validated = $request->validate([
             'department' => ['required', 'string', 'max:255'],
+            'scope' => ['nullable', 'in:personal,shared'],
+            'recipientName' => ['nullable', 'string', 'max:255'],
             'quantity' => ['required', 'integer', 'min:1'],
             'date' => ['nullable', 'date'],
         ]);
 
-        $result = DB::transaction(function () use ($id, $validated, $request) {
+        $scope = $validated['scope'] ?? 'shared';
+        $recipientName = $scope === 'personal' ? trim((string) ($validated['recipientName'] ?? '')) : '';
+        if ($scope === 'personal' && $recipientName === '') {
+            abort(422, 'يرجى تحديد اسم الموظف المستلم.');
+        }
+
+        $result = DB::transaction(function () use ($id, $validated, $scope, $recipientName, $request) {
             /** @var Ink $ink */
             $ink = Ink::query()->lockForUpdate()->findOrFail($id);
 
@@ -61,18 +69,30 @@ class InkController extends CrudController
             $dispense = InkDispense::create([
                 'ink_id' => $ink->id,
                 'department' => $validated['department'],
+                'scope' => $scope,
+                'recipient_name' => $scope === 'personal' ? $recipientName : null,
                 'quantity' => $validated['quantity'],
                 'date' => $validated['date'] ?? now()->toDateString(),
             ]);
+
+            $targetDesc = $scope === 'personal'
+                ? "{$validated['department']} (الموظف: {$recipientName})"
+                : "{$validated['department']} (جماعي)";
 
             AuditLog::record(
                 $this->currentUser($request),
                 'dispensed',
                 'ink',
                 $ink->id,
-                "صرف {$validated['quantity']} من ({$ink->model}) إلى {$validated['department']}",
+                "صرف {$validated['quantity']} من ({$ink->model}) إلى {$targetDesc}",
                 ['quantity' => $beforeQty],
-                ['quantity' => $beforeQty - $validated['quantity'], 'department' => $validated['department'], 'dispensed' => $validated['quantity']],
+                [
+                    'quantity' => $beforeQty - $validated['quantity'],
+                    'department' => $validated['department'],
+                    'scope' => $scope,
+                    'recipient_name' => $scope === 'personal' ? $recipientName : null,
+                    'dispensed' => $validated['quantity'],
+                ],
                 $request,
             );
 
@@ -89,11 +109,19 @@ class InkController extends CrudController
     {
         $validated = $request->validate([
             'department' => ['required', 'string', 'max:255'],
+            'scope' => ['nullable', 'in:personal,shared'],
+            'recipientName' => ['nullable', 'string', 'max:255'],
             'date' => ['nullable', 'date'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.inkId' => ['required', 'string'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
         ]);
+
+        $scope = $validated['scope'] ?? 'shared';
+        $recipientName = $scope === 'personal' ? trim((string) ($validated['recipientName'] ?? '')) : '';
+        if ($scope === 'personal' && $recipientName === '') {
+            abort(422, 'يرجى تحديد اسم الموظف المستلم.');
+        }
 
         $date = $validated['date'] ?? now()->toDateString();
 
@@ -103,7 +131,7 @@ class InkController extends CrudController
             $merged[$inkId] = ($merged[$inkId] ?? 0) + (int) $row['quantity'];
         }
 
-        $result = DB::transaction(function () use ($validated, $merged, $date, $request) {
+        $result = DB::transaction(function () use ($validated, $scope, $recipientName, $merged, $date, $request) {
             $updatedInks = [];
             $createdDispenses = [];
             $summaryParts = [];
@@ -119,6 +147,8 @@ class InkController extends CrudController
                 $dispense = InkDispense::create([
                     'ink_id' => $ink->id,
                     'department' => $validated['department'],
+                    'scope' => $scope,
+                    'recipient_name' => $scope === 'personal' ? $recipientName : null,
                     'quantity' => $qty,
                     'date' => $date,
                 ]);
@@ -128,14 +158,23 @@ class InkController extends CrudController
                 $summaryParts[] = "{$qty} × {$ink->model}";
             }
 
+            $targetDesc = $scope === 'personal'
+                ? "{$validated['department']} (الموظف: {$recipientName})"
+                : "{$validated['department']} (جماعي)";
+
             AuditLog::record(
                 $this->currentUser($request),
                 'dispensed',
                 'ink',
                 null,
-                "صرف مجمع إلى {$validated['department']}: ".implode('، ', $summaryParts),
+                "صرف مجمع إلى {$targetDesc}: ".implode('، ', $summaryParts),
                 null,
-                ['department' => $validated['department'], 'items' => $merged],
+                [
+                    'department' => $validated['department'],
+                    'scope' => $scope,
+                    'recipient_name' => $scope === 'personal' ? $recipientName : null,
+                    'items' => $merged,
+                ],
                 $request,
             );
 

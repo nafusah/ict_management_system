@@ -22,7 +22,12 @@ import {
 } from '../../shared/components/ui'
 import { getStoredToken } from '../../shared/data/api'
 import { recordAudit, usePermission } from '../../shared/data/auth'
-import { inkDispensesStore, inksStore, syncBatchInkDispenseWithServer, syncInkDispenseWithServer, useBrands, useDepartments, useInkColors, useInkDispenses, useInks, usePrinterTypes } from '../../shared/data/store'
+import { inkDispensesStore, inksStore, syncBatchInkDispenseWithServer, syncInkDispenseWithServer, useBrands, useDepartments, useEmployees, useInkColors, useInkDispenses, useInks, usePrinterTypes } from '../../shared/data/store'
+import {
+  DispenseRecipientFields,
+  createInitialRecipientState,
+  resolveDispenseRecipient,
+} from './components/DispenseRecipientFields'
 import { OTHER } from '../../shared/data/options'
 import { isLowStock } from '../../shared/data/types'
 import type { Ink, InkColor, InkColorItem } from '../../shared/data/types'
@@ -290,6 +295,10 @@ export default function Inks() {
             setViewingId(null)
             setEditing(target)
           }}
+          onSuccess={(msg) => {
+            setViewingId(null)
+            setToast(msg)
+          }}
         />
       )}
 
@@ -334,16 +343,18 @@ function InkDetailsModal({
   ink,
   onClose,
   onEdit,
+  onSuccess,
 }: {
   ink: Ink
   onClose: () => void
   onEdit: () => void
+  onSuccess: (msg: string) => void
 }) {
   const canManage = usePermission('inks.manage')
   const inkColors = useInkColors()
   const printerTypes = usePrinterTypes()
   const departments = useDepartments()
-  const deptNames = useMemo(() => departments.map((d) => d.name), [departments])
+  const employees = useEmployees()
   const allDispenses = useInkDispenses()
   const inkDispenses = useMemo(() => allDispenses.filter((d) => d.inkId === ink.id).slice(0, 5), [allDispenses, ink.id])
   const linkedPrinter = useMemo(
@@ -352,27 +363,24 @@ function InkDetailsModal({
   )
   const [mode, setMode] = useState<'dispense' | 'restock'>('dispense')
   const [amountStr, setAmountStr] = useState('1')
-  const [dept, setDept] = useState<string>(deptNames[0] ?? OTHER)
-  const [customDept, setCustomDept] = useState('')
-  const [notice, setNotice] = useState<string | null>(null)
+  const [recipient, setRecipient] = useState(() => createInitialRecipientState(departments, employees, 'shared'))
 
   const low = isLowStock(ink)
   const meta = inkColors.find((c) => c.id === ink.color) ?? FALLBACK_COLOR
   const parsed = parseInt(amountStr, 10)
   const validNumber = !isNaN(parsed) && parsed > 0
   const exceedsStock = mode === 'dispense' && validNumber && parsed > ink.quantity
-  const chosenDept = dept === OTHER ? customDept.trim() : dept
+  const resolvedRecipient = resolveDispenseRecipient(recipient)
   const canSubmit =
     validNumber &&
     !exceedsStock &&
-    !(mode === 'dispense' && (ink.quantity === 0 || !chosenDept))
+    !(mode === 'dispense' && (ink.quantity === 0 || Boolean(resolvedRecipient.error)))
 
   const stepAmount = (delta: number) => {
     const current = validNumber ? parsed : 1
     const max = mode === 'dispense' ? Math.max(1, ink.quantity) : 999
     const next = Math.min(max, Math.max(1, current + delta))
     setAmountStr(String(next))
-    setNotice(null)
   }
 
   const handleTransaction = (e: FormEvent) => {
@@ -384,29 +392,32 @@ function InkDetailsModal({
 
     if (mode === 'dispense') {
       const today = new Date().toISOString().slice(0, 10)
+      const { department: chosenDept, scope, recipientName } = resolvedRecipient
+      const targetDesc =
+        scope === 'personal' && recipientName
+          ? `«${chosenDept}» (الموظف: ${recipientName})`
+          : `«${chosenDept}» (جماعي)`
+
       if (getStoredToken()) {
         inksStore.setAll(inksStore.getAll().map((i) => (i.id === ink.id ? { ...i, quantity: nextQuantity } : i)))
-        syncInkDispenseWithServer(ink.id, chosenDept, parsed, today)
+        syncInkDispenseWithServer(ink.id, chosenDept, parsed, today, scope, recipientName)
       } else {
         inksStore.update({ ...ink, quantity: nextQuantity })
         inkDispensesStore.add({
           inkId: ink.id,
           department: chosenDept,
+          scope,
+          recipientName,
           quantity: parsed,
           date: today,
         })
-        recordAudit('dispensed', 'ink', `صرف ${parsed} من (${ink.model}) إلى «${chosenDept}»`, ink.id)
+        recordAudit('dispensed', 'ink', `صرف ${parsed} من (${ink.model}) إلى ${targetDesc}`, ink.id)
       }
-      setNotice(`تم صرف ${parsed} لإدارة «${chosenDept}». الكمية المتبقية الآن: ${nextQuantity}`)
-      if (nextQuantity === 0) {
-        setAmountStr('1')
-      } else if (parsed > nextQuantity) {
-        setAmountStr(String(nextQuantity))
-      }
+      onSuccess(`تم إنشاء أمر صرف (${parsed} × ${ink.model}) إلى ${targetDesc} بنجاح`)
     } else {
       inksStore.update({ ...ink, quantity: nextQuantity })
       recordAudit('restocked', 'ink', `توريد ${parsed} من (${ink.model}) — المتوفر: ${nextQuantity}`, ink.id)
-      setNotice(`تمت إضافة ${parsed} إلى المخزون. الكمية المتوفرة الآن: ${nextQuantity}`)
+      onSuccess(`تمت إضافة ${parsed} إلى مخزون (${ink.model}) بنجاح`)
     }
   }
 
@@ -496,10 +507,7 @@ function InkDetailsModal({
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
-                onClick={() => {
-                  setMode('dispense')
-                  setNotice(null)
-                }}
+                onClick={() => setMode('dispense')}
                 className={cx(
                   'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
                   mode === 'dispense'
@@ -512,10 +520,7 @@ function InkDetailsModal({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setMode('restock')
-                  setNotice(null)
-                }}
+                onClick={() => setMode('restock')}
                 className={cx(
                   'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
                   mode === 'restock'
@@ -530,38 +535,12 @@ function InkDetailsModal({
           </fieldset>
 
           {mode === 'dispense' && (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className={dept === OTHER ? '' : 'sm:col-span-2'}>
-                <Field label="الإدارة المستلمة">
-                  {(id) => (
-                    <SearchableSelect
-                      id={id}
-                      value={dept}
-                      onChange={(nextDept) => {
-                        setDept(nextDept)
-                        setNotice(null)
-                      }}
-                      options={[...deptNames, OTHER].map((d) => ({ value: d, label: d }))}
-                      searchPlaceholder="ابحث عن إدارة..."
-                    />
-                  )}
-                </Field>
-              </div>
-              {dept === OTHER && (
-                <Field label="اسم الإدارة">
-                  {(id) => (
-                    <TextInput
-                      id={id}
-                      value={customDept}
-                      onChange={(e) => {
-                        setCustomDept(e.target.value)
-                        setNotice(null)
-                      }}
-                      placeholder="اكتب اسم الإدارة المستلمة"
-                    />
-                  )}
-                </Field>
-              )}
+            <div className="mt-4">
+              <DispenseRecipientFields
+                value={recipient}
+                onChange={setRecipient}
+                radioName="ink-detail-scope"
+              />
             </div>
           )}
 
@@ -584,10 +563,7 @@ function InkDetailsModal({
                   inputMode="numeric"
                   className="text-center text-base font-bold tabular-nums"
                   value={amountStr}
-                  onChange={(e) => {
-                    setAmountStr(e.target.value)
-                    setNotice(null)
-                  }}
+                  onChange={(e) => setAmountStr(e.target.value)}
                 />
                 <IconButton
                   label="زيادة واحد"
@@ -620,14 +596,6 @@ function InkDetailsModal({
               الكمية المطلوبة ({parsed}) أكبر من المتوفر في المخزون ({ink.quantity}).
             </p>
           )}
-          {notice && (
-            <p
-              role="status"
-              className="mt-3 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"
-            >
-              {notice}
-            </p>
-          )}
         </form>
         )}
 
@@ -637,7 +605,12 @@ function InkDetailsModal({
             <ul className="divide-y divide-slate-100 text-xs">
               {inkDispenses.map((d) => (
                 <li key={d.id} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
-                  <span className="font-semibold text-slate-800">{d.department}</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold text-slate-800">{d.department}</span>
+                    <span className="text-slate-500">
+                      • {(d.scope ?? 'shared') === 'personal' && d.recipientName ? d.recipientName : 'جماعي'}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Pill tone="slate">{d.quantity} خرطوش</Pill>
                     <span className="font-mono text-slate-500">{d.date}</span>
@@ -861,18 +834,15 @@ function BatchDispenseModal({
 }) {
   const inks = useInks()
   const departments = useDepartments()
+  const employees = useEmployees()
   const inkColors = useInkColors()
   const availableInks = useMemo(() => inks.filter((i) => i.quantity > 0), [inks])
-  const deptNames = useMemo(() => departments.map((d) => d.name), [departments])
 
-  const [dept, setDept] = useState<string>(deptNames[0] ?? OTHER)
-  const [customDept, setCustomDept] = useState('')
+  const [recipient, setRecipient] = useState(() => createInitialRecipientState(departments, employees, 'shared'))
   const [rows, setRows] = useState<{ key: number; inkId: string; quantity: string }[]>(() => [
     { key: 1, inkId: availableInks[0]?.id ?? '', quantity: '1' },
   ])
   const [error, setError] = useState('')
-
-  const chosenDept = dept === OTHER ? customDept.trim() : dept
 
   const addRow = () => {
     const used = new Set(rows.map((r) => r.inkId))
@@ -896,10 +866,13 @@ function BatchDispenseModal({
     e.preventDefault()
     setError('')
 
-    if (!chosenDept) {
-      setError('يرجى تحديد الإدارة المستلمة.')
+    const resolved = resolveDispenseRecipient(recipient)
+    if (resolved.error) {
+      setError(resolved.error)
       return
     }
+    const { department: chosenDept, scope, recipientName } = resolved
+
     if (rows.length === 0) {
       setError('أضف صنف حبر واحداً على الأقل.')
       return
@@ -933,6 +906,10 @@ function BatchDispenseModal({
 
     const items = Array.from(totals.entries()).map(([inkId, quantity]) => ({ inkId, quantity }))
     const today = new Date().toISOString().slice(0, 10)
+    const targetDesc =
+      scope === 'personal' && recipientName
+        ? `«${chosenDept}» (الموظف: ${recipientName})`
+        : `«${chosenDept}» (جماعي)`
 
     inksStore.setAll(
       inksStore.getAll().map((ink) => {
@@ -942,26 +919,26 @@ function BatchDispenseModal({
     )
 
     if (getStoredToken()) {
-      syncBatchInkDispenseWithServer(chosenDept, items, today)
+      syncBatchInkDispenseWithServer(chosenDept, items, today, scope, recipientName)
     } else {
       const parts: string[] = []
       for (const { inkId, quantity } of items) {
         const ink = inks.find((i) => i.id === inkId)
-        inkDispensesStore.add({ inkId, department: chosenDept, quantity, date: today })
+        inkDispensesStore.add({ inkId, department: chosenDept, scope, recipientName, quantity, date: today })
         if (ink) parts.push(`${quantity} × ${ink.model}`)
       }
-      recordAudit('dispensed', 'ink', `صرف مجمع إلى ${chosenDept}: ${parts.join('، ')}`)
+      recordAudit('dispensed', 'ink', `صرف مجمع إلى ${targetDesc}: ${parts.join('، ')}`)
     }
 
-    onSuccess(`تم صرف ${items.length} أصناف حبر لإدارة «${chosenDept}» بنجاح`)
+    onSuccess(`تم إنشاء أمر صرف (${items.length} ${items.length === 1 ? 'صنف' : 'أصناف'}) إلى ${targetDesc} بنجاح`)
   }
 
   return (
     <Modal
       open
       onClose={onClose}
-      title="صرف أكثر من نوع حبر لإدارة"
-      description="اختر الإدارة المستلمة ثم أضف أصناف الأحبار والكميات المطلوب صرفها دفعة واحدة."
+      title="صرف أكثر من نوع حبر"
+      description="حدد نوع الصرف (جماعي للإدارة أو موظف محدد) ثم أضف أصناف الأحبار والكميات المطلوبة."
       footer={
         <>
           <Button onClick={onClose}>إلغاء</Button>
@@ -983,33 +960,11 @@ function BatchDispenseModal({
           </p>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className={dept === OTHER ? '' : 'sm:col-span-2'}>
-            <Field label="الإدارة المستلمة">
-              {(id) => (
-                <SearchableSelect
-                  id={id}
-                  value={dept}
-                  onChange={setDept}
-                  options={[...deptNames, OTHER].map((d) => ({ value: d, label: d }))}
-                  searchPlaceholder="ابحث عن إدارة..."
-                />
-              )}
-            </Field>
-          </div>
-          {dept === OTHER && (
-            <Field label="اسم الإدارة">
-              {(id) => (
-                <TextInput
-                  id={id}
-                  value={customDept}
-                  onChange={(e) => setCustomDept(e.target.value)}
-                  placeholder="اكتب اسم الإدارة المستلمة"
-                />
-              )}
-            </Field>
-          )}
-        </div>
+        <DispenseRecipientFields
+          value={recipient}
+          onChange={setRecipient}
+          radioName="ink-batch-scope"
+        />
 
         <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
           <div className="flex items-center justify-between">

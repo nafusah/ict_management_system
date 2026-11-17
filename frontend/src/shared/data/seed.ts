@@ -88,6 +88,9 @@ export const SEED_USERS: AppUser[] = [
       'devices.manage',
       'inks.view',
       'inks.manage',
+      'inks.vouchers.view',
+      'inks.vouchers.create',
+      'inks.vouchers.approve',
       'subscriptions.view',
       'subscriptions.manage',
       'dictionary.deviceTypes',
@@ -113,6 +116,8 @@ export const SEED_USERS: AppUser[] = [
       'devices.manage',
       'inks.view',
       'inks.manage',
+      'inks.vouchers.view',
+      'inks.vouchers.create',
       'subscriptions.view',
     ],
   },
@@ -122,7 +127,7 @@ export const SEED_USERS: AppUser[] = [
     email: 's.khaled@nafusah.com',
     department: 'إدارة الاتصالات وتقنية المعلومات',
     active: false,
-    permissions: ['dashboard.devices', 'dashboard.inks', 'devices.view', 'inks.view'],
+    permissions: ['dashboard.devices', 'dashboard.inks', 'devices.view', 'inks.view', 'inks.vouchers.view'],
   },
 ]
 

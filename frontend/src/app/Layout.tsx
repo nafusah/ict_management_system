@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { DICTIONARY_TABS } from '../features/dictionary/components/DictionaryTabs'
 import {
   Bell,
   BookOpen,
   CaretDown,
   CheckCircle,
+  ClipboardText,
   ClockCounterClockwise,
   DesktopTower,
   Drop,
+  Folders,
   Gear,
   IdentificationCard,
   Key,
   List,
   LockSimple,
+  Printer,
   SignOut,
   SquaresFour,
   Users,
@@ -21,7 +25,7 @@ import {
 } from '@phosphor-icons/react'
 import { useAuthStore } from '../features/auth/authStore'
 import { logout, useAuth, useCurrentPermissions, usePermission } from '../shared/data/auth'
-import { useInkColors, useInks, useSubscriptions } from '../shared/data/store'
+import { useInkColors, useInkVouchers, useInks, useSubscriptions } from '../shared/data/store'
 import { daysUntilExpiry, getSubscriptionStatus, isLowStock } from '../shared/data/types'
 import type { Permission } from '../shared/data/types'
 import { Button, Field, Modal, Pill, TextInput, Toast, cx } from '../shared/components/ui'
@@ -36,22 +40,75 @@ type NavItem = {
   permissions?: Permission[]
 }
 
-const NAV: NavItem[] = [
+type NavSection = {
+  id: string
+  title?: string
+  items: NavItem[]
+}
+
+const NAV_SECTIONS: NavSection[] = [
   {
-    to: '/',
-    label: 'لوحة التحكم',
-    icon: SquaresFour,
-    permissions: ['dashboard.devices', 'dashboard.inks', 'dashboard.subscriptions'],
+    id: 'overview',
+    items: [
+      {
+        to: '/',
+        label: 'لوحة التحكم',
+        icon: SquaresFour,
+        permissions: ['dashboard.devices', 'dashboard.inks', 'dashboard.subscriptions'],
+      },
+    ],
   },
-  { to: '/devices', label: 'الأجهزة', icon: DesktopTower, permissions: ['devices.view', 'devices.manage'] },
-  { to: '/inks', label: 'مخزون الأحبار', icon: Drop, permissions: ['inks.view', 'inks.manage'] },
   {
-    to: '/subscriptions',
-    label: 'الاشتراكات والتراخيص',
-    icon: Key,
-    permissions: ['subscriptions.view', 'subscriptions.manage'],
+    id: 'devices',
+    title: 'الأجهزة',
+    items: [
+      { to: '/devices', label: 'الأجهزة', icon: DesktopTower, permissions: ['devices.view', 'devices.manage'] },
+    ],
+  },
+  {
+    id: 'inks',
+    title: 'الأحبار',
+    items: [
+      { to: '/inks', label: 'مخزون الأحبار', icon: Drop, end: true, permissions: ['inks.view', 'inks.manage'] },
+      {
+        to: '/inks/printers',
+        label: 'الطابعات والأحبار',
+        icon: Printer,
+        end: true,
+        permissions: ['dashboard.inks', 'inks.view', 'inks.manage'],
+      },
+      {
+        to: '/inks/vouchers',
+        label: 'أذونات صرف الأحبار',
+        icon: ClipboardText,
+        end: true,
+        permissions: ['inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve'],
+      },
+    ],
+  },
+  {
+    id: 'subscriptions',
+    title: 'الاشتراكات',
+    items: [
+      {
+        to: '/subscriptions',
+        label: 'الاشتراكات والتراخيص',
+        icon: Key,
+        end: true,
+        permissions: ['subscriptions.view', 'subscriptions.manage'],
+      },
+      {
+        to: '/subscriptions/summary',
+        label: 'تصنيفات الاشتراكات',
+        icon: Folders,
+        end: true,
+        permissions: ['dashboard.subscriptions', 'subscriptions.view', 'subscriptions.manage'],
+      },
+    ],
   },
 ]
+
+const NAV: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items)
 
 const BOTTOM_NAV: NavItem[] = [
   { to: '/settings', label: 'الإعدادات', icon: Gear, end: true, permissions: ['settings.manage'] },
@@ -82,9 +139,11 @@ const BOTTOM_NAV: NavItem[] = [
 
 function SidebarLink({
   item,
+  pathname,
   onNavigate,
 }: {
   item: NavItem
+  pathname: string
   onNavigate?: () => void
 }) {
   const { to, label, icon: Icon, indent, end, matchPrefix } = item
@@ -94,24 +153,30 @@ function SidebarLink({
         to={to}
         end={end ?? to === '/'}
         onClick={onNavigate}
+        data-sidebar-active={matchPrefix && pathname.startsWith(matchPrefix) ? 'true' : undefined}
         className={({ isActive }) => {
-          const active = matchPrefix ? window.location.pathname.startsWith(matchPrefix) : isActive
+          const active = matchPrefix ? pathname.startsWith(matchPrefix) : isActive
           return cx(
-            'sidebar-water relative flex items-center gap-3 rounded-lg text-sm transition-colors duration-300',
-            indent ? 'h-9 ps-9 pe-4 text-[13px]' : 'h-11 px-4',
+            'relative z-10 flex items-center gap-3 rounded-lg text-sm transition-colors duration-300',
+            indent ? 'h-9 ps-9 pe-4 text-[13px]' : 'h-10 px-4',
             'focus-visible:outline-2 focus-visible:outline-signal',
             active
-              ? 'sidebar-water-active bg-slate-800/80 font-semibold text-white'
-              : 'hover:text-white',
+              ? 'font-semibold text-white'
+              : 'hover:bg-white/[0.04] hover:text-slate-200',
           )
         }}
       >
         {({ isActive }) => {
-          const active = matchPrefix ? window.location.pathname.startsWith(matchPrefix) : isActive
+          const active = matchPrefix ? pathname.startsWith(matchPrefix) : isActive
           return (
             <>
+              <span data-active-marker={active ? 'true' : undefined} className="hidden" />
               <Icon
-                className={cx('relative z-10', indent ? 'size-4' : 'size-5')}
+                className={cx(
+                  'relative z-10 transition-all duration-300',
+                  indent ? 'size-4' : 'size-5',
+                  active && 'text-signal drop-shadow-[0_0_8px_rgba(252,196,26,0.55)]',
+                )}
                 weight={active ? 'duotone' : 'regular'}
               />
               <span className="relative z-10">{label}</span>
@@ -125,34 +190,123 @@ function SidebarLink({
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const userPerms = useCurrentPermissions()
+  const { pathname } = useLocation()
+  const navRef = useRef<HTMLElement>(null)
+  const prevTopRef = useRef<number | null>(null)
+  const [spot, setSpot] = useState<{ top: number; height: number; visible: boolean }>({
+    top: 0,
+    height: 44,
+    visible: false,
+  })
+  const [swing, setSwing] = useState<'up' | 'down' | null>(null)
+
   const canSee = (item: NavItem) =>
     !item.permissions || item.permissions.some((p) => userPerms.includes(p))
 
-  const visibleNav = NAV.filter(canSee)
-  const visibleBottom = BOTTOM_NAV.filter(canSee)
+  const visibleSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter(canSee),
+  })).filter((section) => section.items.length > 0)
+  const visibleItemCount = visibleSections.reduce((sum, s) => sum + s.items.length, 0)
+  const firstDictRoute =
+    DICTIONARY_TABS.find((t) => t.permissions.some((p) => userPerms.includes(p)))?.to ?? '/dictionary/device-types'
+  const visibleBottom = BOTTOM_NAV.filter(canSee).map((item) =>
+    item.matchPrefix === '/dictionary' ? { ...item, to: firstDictRoute } : item,
+  )
+
+  useLayoutEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+
+    const updateSpot = () => {
+      const marker = nav.querySelector<HTMLElement>('[data-active-marker="true"]')
+      const link = marker?.closest('a')
+      if (!link) {
+        setSpot((s) => (s.visible ? { ...s, visible: false } : s))
+        return
+      }
+      const navRect = nav.getBoundingClientRect()
+      const linkRect = link.getBoundingClientRect()
+      const nextTop = linkRect.top - navRect.top + nav.scrollTop
+      const nextHeight = linkRect.height
+
+      if (prevTopRef.current !== null && Math.abs(prevTopRef.current - nextTop) > 2) {
+        setSwing(nextTop > prevTopRef.current ? 'down' : 'up')
+      }
+      prevTopRef.current = nextTop
+      setSpot({ top: nextTop, height: nextHeight, visible: true })
+    }
+
+    updateSpot()
+    window.addEventListener('resize', updateSpot)
+    return () => window.removeEventListener('resize', updateSpot)
+  }, [pathname, visibleItemCount, visibleBottom.length])
+
+  useEffect(() => {
+    if (!swing) return
+    const timer = window.setTimeout(() => setSwing(null), 430)
+    return () => window.clearTimeout(timer)
+  }, [swing])
 
   return (
-    <nav aria-label="القائمة الرئيسية" className="flex h-full flex-col bg-slate-900 text-slate-400">
-      <div className="flex h-16 items-center justify-center border-b border-slate-800 px-5">
+    <nav
+      ref={navRef}
+      aria-label="القائمة الرئيسية"
+      className="relative flex h-full flex-col overflow-x-hidden overflow-y-auto bg-slate-900 text-slate-400"
+    >
+      <div
+        aria-hidden="true"
+        className={cx(
+          'sidebar-spotlight',
+          swing === 'down' && 'sidebar-spotlight-swing-down',
+          swing === 'up' && 'sidebar-spotlight-swing-up',
+          spot.visible ? 'opacity-100' : 'opacity-0',
+        )}
+        style={{
+          transform: `translateY(${spot.top}px)`,
+          height: `${spot.height}px`,
+        }}
+      >
+        <div className="sidebar-spotlight-beam" />
+        <div className="sidebar-spotlight-lamp" />
+      </div>
+
+      <div className="relative z-10 flex h-16 shrink-0 items-center justify-center border-b border-slate-800 px-5">
         <div className="flex items-center gap-2.5">
           <img
             src="/images/ims_logo_dark_theme.svg"
             alt="شعار النظام"
             className="h-11 w-11 object-contain"
           />
-
         </div>
       </div>
-      <ul className="flex flex-1 flex-col gap-1 p-2">
-        {visibleNav.map((item) => (
-          <SidebarLink key={`${item.label}-${item.to}`} item={item} onNavigate={onNavigate} />
+      <div className="relative z-10 flex flex-1 flex-col gap-2 p-2">
+        {visibleSections.map((section, idx) => (
+          <div
+            key={section.id}
+            className={cx(idx > 0 && 'border-t border-slate-800/80 pt-2')}
+          >
+            {section.title && (
+              <div className="px-3 pb-1 text-[11px] font-bold tracking-wide text-slate-500">
+                {section.title}
+              </div>
+            )}
+            <ul className="flex flex-col gap-0.5">
+              {section.items.map((item) => (
+                <SidebarLink key={`${item.label}-${item.to}`} item={item} pathname={pathname} onNavigate={onNavigate} />
+              ))}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
       {visibleBottom.length > 0 && (
-        <div className="border-t border-slate-800 p-2">
-          <ul className="flex flex-col gap-1">
+        <div className="relative z-10 border-t border-slate-800 p-2">
+          <div className="px-3 pt-0.5 pb-1 text-[11px] font-bold tracking-wide text-slate-500">
+            النظام والإدارة
+          </div>
+          <ul className="flex flex-col gap-0.5">
             {visibleBottom.map((item) => (
-              <SidebarLink key={item.to} item={item} onNavigate={onNavigate} />
+              <SidebarLink key={item.to} item={item} pathname={pathname} onNavigate={onNavigate} />
             ))}
           </ul>
         </div>
@@ -217,10 +371,12 @@ export default function Layout() {
   }, [showLoginLoader, minTimePassed, hydrating, clearJustLoggedIn])
 
   const inks = useInks()
+  const inkVouchers = useInkVouchers()
   const inkColors = useInkColors()
   const subscriptions = useSubscriptions()
   const canSeeInkAlerts = usePermission(['dashboard.inks', 'inks.view', 'inks.manage'])
   const canSeeSubAlerts = usePermission(['dashboard.subscriptions', 'subscriptions.view', 'subscriptions.manage'])
+  const canApproveVouchers = usePermission('inks.vouchers.approve')
   const canOpenInksPage = usePermission(['inks.view', 'inks.manage'])
   const canOpenSubsPage = usePermission(['subscriptions.view', 'subscriptions.manage'])
   const lowStockInks = useMemo(() => inks.filter(isLowStock), [inks])
@@ -239,8 +395,25 @@ export default function Layout() {
       badge: string
       tone: 'red' | 'amber'
       to: string
-      kind: 'ink' | 'subscription'
+      kind: 'ink' | 'subscription' | 'voucher'
     }[] = []
+
+    if (canApproveVouchers) {
+      for (const v of inkVouchers) {
+        if (v.status === 'pending') {
+          const totalUnits = v.items.reduce((sum, it) => sum + it.quantity, 0)
+          items.push({
+            id: `vch-${v.id}`,
+            title: `إذن صرف ${v.id} — ${v.department}`,
+            subtitle: `بواسطة ${v.requesterName} • ${totalUnits} عبوة`,
+            badge: 'قيد الانتظار',
+            tone: 'amber',
+            to: '/inks/vouchers',
+            kind: 'voucher',
+          })
+        }
+      }
+    }
 
     if (canSeeSubAlerts) {
       for (const sub of subscriptions) {
@@ -283,11 +456,15 @@ export default function Layout() {
     }
 
     return items
-  }, [inks, inkColors, subscriptions, canSeeInkAlerts, canSeeSubAlerts, canOpenInksPage, canOpenSubsPage])
+  }, [inks, inkVouchers, inkColors, subscriptions, canSeeInkAlerts, canSeeSubAlerts, canApproveVouchers, canOpenInksPage, canOpenSubsPage])
 
   const allNav = [...NAV, ...BOTTOM_NAV]
   const current = allNav.find((n) =>
-    n.to === '/' || ('end' in n && n.end) ? location.pathname === n.to : location.pathname.startsWith(n.to),
+    n.matchPrefix
+      ? location.pathname.startsWith(n.matchPrefix)
+      : n.to === '/' || ('end' in n && n.end)
+        ? location.pathname === n.to
+        : location.pathname.startsWith(n.to),
   )
 
   useEffect(() => {
@@ -492,7 +669,9 @@ export default function Layout() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                              {n.kind === 'ink' ? (
+                              {n.kind === 'voucher' ? (
+                                <ClipboardText className="size-4 shrink-0 text-amber-600" weight="duotone" />
+                              ) : n.kind === 'ink' ? (
                                 <Drop className="size-4 shrink-0 text-slate-600" weight="duotone" />
                               ) : (
                                 <Key className="size-4 shrink-0 text-slate-600" weight="duotone" />

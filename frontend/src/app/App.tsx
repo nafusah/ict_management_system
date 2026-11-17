@@ -10,13 +10,17 @@ import Devices from '../features/devices/DevicesPage'
 import InkColors from '../features/dictionary/InkColorsPage'
 import PrinterTypes from '../features/dictionary/PrinterTypesPage'
 import Inks from '../features/inks/InksPage'
+import InkVouchersPage from '../features/inks/InkVouchersPage'
+import PrintersInksPage from '../features/inks/PrintersInksPage'
 import ServicesSettings from '../features/dictionary/ServicesSettingsPage'
 import AuditLogs from '../features/settings/AuditLogsPage'
 import Employees from '../features/settings/EmployeesPage'
 import Settings from '../features/settings/SettingsPage'
 import Subscriptions from '../features/subscriptions/SubscriptionsPage'
+import SubscriptionsSummaryPage from '../features/subscriptions/SubscriptionsSummaryPage'
 import Users from '../features/settings/UsersPage'
-import { useAuth, usePermission } from '../shared/data/auth'
+import { useAuth, useCurrentPermissions, usePermission } from '../shared/data/auth'
+import { DICTIONARY_TABS } from '../features/dictionary/components/DictionaryTabs'
 import type { Permission } from '../shared/data/types'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -61,6 +65,12 @@ function RequirePermission({
   return <>{children}</>
 }
 
+function DictionaryIndexRedirect() {
+  const userPerms = useCurrentPermissions()
+  const firstTab = DICTIONARY_TABS.find((t) => t.permissions.some((p) => userPerms.includes(p)))
+  return <Navigate to={firstTab?.to ?? '/'} replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -99,6 +109,22 @@ export default function App() {
             }
           />
           <Route
+            path="inks/printers"
+            element={
+              <RequirePermission allow={['dashboard.inks', 'inks.view', 'inks.manage']}>
+                <PrintersInksPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="inks/vouchers"
+            element={
+              <RequirePermission allow={['inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve']}>
+                <InkVouchersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
             path="subscriptions"
             element={
               <RequirePermission allow={['subscriptions.view', 'subscriptions.manage']}>
@@ -106,7 +132,15 @@ export default function App() {
               </RequirePermission>
             }
           />
-          <Route path="dictionary" element={<Navigate to="/dictionary/device-types" replace />} />
+          <Route
+            path="subscriptions/summary"
+            element={
+              <RequirePermission allow={['dashboard.subscriptions', 'subscriptions.view', 'subscriptions.manage']}>
+                <SubscriptionsSummaryPage />
+              </RequirePermission>
+            }
+          />
+          <Route path="dictionary" element={<DictionaryIndexRedirect />} />
           <Route
             path="dictionary/device-types"
             element={

@@ -1,11 +1,17 @@
 import { getStoredToken } from './api'
 import { devicesStore, useDevices } from '../../features/devices/devicesStore'
 import {
+  createInkVoucherOnServer,
+  deleteInkVoucherOnServer,
+  dispenseInkVoucherOnServer,
   inkDispensesStore,
+  inkVouchersStore,
   inksStore,
+  rejectInkVoucherOnServer,
   syncBatchInkDispenseWithServer as syncBatchInkDispenseBase,
   syncInkDispenseWithServer as syncInkDispenseBase,
   useInkDispenses,
+  useInkVouchers,
   useInks,
 } from '../../features/inks/inksStore'
 import { subscriptionsStore, useSubscriptions } from '../../features/subscriptions/subscriptionsStore'
@@ -37,6 +43,7 @@ import {
   useUsers,
 } from '../../features/settings/settingsStore'
 import type { GeneralSettingsData } from '../../features/settings/settingsStore'
+import type { Classification, Permission } from './types'
 
 export {
   auditLogsStore,
@@ -49,6 +56,7 @@ export {
   fetchSettingsFromApi,
   inkColorsStore,
   inkDispensesStore,
+  inkVouchersStore,
   inksStore,
   printerTypesStore,
   providersStore,
@@ -63,6 +71,7 @@ export {
   useEmployees,
   useInkColors,
   useInkDispenses,
+  useInkVouchers,
   useInks,
   usePrinterTypes,
   useProviders,
@@ -73,8 +82,22 @@ export {
 }
 export type { GeneralSettingsData }
 
-export function syncInkDispenseWithServer(inkId: string, department: string, quantity: number, date: string) {
-  syncInkDispenseBase(inkId, department, quantity, date, () => {
+export {
+  createInkVoucherOnServer,
+  deleteInkVoucherOnServer,
+  dispenseInkVoucherOnServer,
+  rejectInkVoucherOnServer,
+}
+
+export function syncInkDispenseWithServer(
+  inkId: string,
+  department: string,
+  quantity: number,
+  date: string,
+  scope: Classification = 'shared',
+  recipientName?: string | null,
+) {
+  syncInkDispenseBase(inkId, department, quantity, date, scope, recipientName, () => {
     void auditLogsStore.hydrate()
   })
 }
@@ -83,28 +106,76 @@ export function syncBatchInkDispenseWithServer(
   department: string,
   items: { inkId: string; quantity: number }[],
   date: string,
+  scope: Classification = 'shared',
+  recipientName?: string | null,
 ) {
-  syncBatchInkDispenseBase(department, items, date, () => {
+  syncBatchInkDispenseBase(department, items, date, scope, recipientName, () => {
     void auditLogsStore.hydrate()
   })
 }
 
-export async function hydrateAllFromApi() {
+function readStoredPermissions(): Permission[] | null {
+  try {
+    const raw = localStorage.getItem('it-management:session') ?? sessionStorage.getItem('it-management:session')
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { permissions?: Permission[] }
+    return Array.isArray(parsed.permissions) ? parsed.permissions : null
+  } catch {
+    return null
+  }
+}
+
+export async function hydrateAllFromApi(explicitPerms?: Permission[]) {
   if (!getStoredToken()) return
-  await Promise.allSettled([
-    devicesStore.hydrate(),
-    deviceTypesStore.hydrate(),
-    printerTypesStore.hydrate(),
-    inksStore.hydrate(),
-    inkDispensesStore.hydrate(),
-    inkColorsStore.hydrate(),
-    brandsStore.hydrate(),
-    servicesStore.hydrate(),
-    providersStore.hydrate(),
-    subscriptionsStore.hydrate(),
-    usersStore.hydrate(),
-    departmentsStore.hydrate(),
-    employeesStore.hydrate(),
-    auditLogsStore.hydrate(),
-  ])
+  const perms = explicitPerms ?? readStoredPermissions()
+  const hasAny = (...list: Permission[]) => !perms || list.some((p) => perms.includes(p))
+
+  const jobs: Promise<void>[] = []
+
+  if (hasAny('devices.view', 'devices.manage', 'dashboard.devices')) {
+    jobs.push(devicesStore.hydrate(), deviceTypesStore.hydrate())
+  } else if (hasAny('dictionary.deviceTypes')) {
+    jobs.push(deviceTypesStore.hydrate())
+  }
+
+  if (hasAny('inks.view', 'inks.manage', 'dashboard.inks', 'inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve')) {
+    jobs.push(inksStore.hydrate(), printerTypesStore.hydrate(), inkColorsStore.hydrate())
+  } else {
+    if (hasAny('dictionary.printerTypes', 'dictionary.inkColors')) jobs.push(printerTypesStore.hydrate())
+    if (hasAny('dictionary.inkColors')) jobs.push(inkColorsStore.hydrate())
+  }
+
+  if (hasAny('inks.view', 'inks.manage')) {
+    jobs.push(inkDispensesStore.hydrate())
+  }
+
+  if (hasAny('inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve')) {
+    jobs.push(inkVouchersStore.hydrate())
+  }
+
+  if (hasAny('subscriptions.view', 'subscriptions.manage', 'dashboard.subscriptions')) {
+    jobs.push(subscriptionsStore.hydrate())
+  }
+
+  if (hasAny('dictionary.brands', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage')) {
+    jobs.push(brandsStore.hydrate())
+  }
+
+  if (hasAny('dictionary.services', 'subscriptions.view', 'subscriptions.manage')) {
+    jobs.push(servicesStore.hydrate(), providersStore.hydrate())
+  }
+
+  if (hasAny('employees.manage', 'settings.manage', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage', 'inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve', 'subscriptions.view', 'subscriptions.manage')) {
+    jobs.push(departmentsStore.hydrate())
+  }
+
+  if (hasAny('employees.manage', 'settings.manage', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage', 'inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve')) {
+    jobs.push(employeesStore.hydrate())
+  }
+
+  if (hasAny('settings.manage')) {
+    jobs.push(usersStore.hydrate(), auditLogsStore.hydrate())
+  }
+
+  await Promise.allSettled(jobs)
 }

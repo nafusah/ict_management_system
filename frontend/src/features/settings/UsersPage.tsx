@@ -17,6 +17,7 @@ import {
   cx,
 } from '../../shared/components/ui'
 import { SettingsTabs } from './components/SettingsTabs'
+import { useAuthStore } from '../auth/authStore'
 import { recordAudit } from '../../shared/data/auth'
 import { usersStore, useUsers } from '../../shared/data/store'
 import { PERMISSIONS } from '../../shared/data/types'
@@ -42,6 +43,8 @@ const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
       'devices.manage',
       'inks.view',
       'inks.manage',
+      'inks.vouchers.view',
+      'inks.vouchers.create',
       'subscriptions.view',
       'dictionary.printerTypes',
       'dictionary.inkColors',
@@ -54,7 +57,20 @@ const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
   },
   {
     label: 'مسؤول أحبار',
-    permissions: ['dashboard.inks', 'inks.view', 'inks.manage', 'dictionary.printerTypes', 'dictionary.inkColors'],
+    permissions: [
+      'dashboard.inks',
+      'inks.view',
+      'inks.manage',
+      'inks.vouchers.view',
+      'inks.vouchers.create',
+      'inks.vouchers.approve',
+      'dictionary.printerTypes',
+      'dictionary.inkColors',
+    ],
+  },
+  {
+    label: 'طالب صرف أحبار',
+    permissions: ['inks.vouchers.view', 'inks.vouchers.create'],
   },
   {
     label: 'مسؤول اشتراكات',
@@ -263,7 +279,9 @@ export default function Users() {
         onClose={() => setEditing(null)}
         onSave={(data) => {
           if (editing && editing !== 'new') {
-            usersStore.update({ ...data, id: editing.id })
+            const updatedUser = { ...data, id: editing.id }
+            usersStore.update(updatedUser)
+            useAuthStore.getState().syncSessionProfile(updatedUser)
             recordAudit('updated', 'app_user', `تعديل بيانات وصلاحيات المستخدم: ${data.name}`, editing.id)
             setToast(`تم تحديث بيانات "${data.name}" بنجاح`)
           } else {

@@ -28,6 +28,9 @@ export function useCurrentPermissions(): Permission[] {
   const session = useAuth()
   const users = useUsers()
   if (!session) return []
+  if (session.token) {
+    return session.permissions ?? []
+  }
   const liveUser = users.find((u) => u.id === session.userId)
   return liveUser?.permissions ?? session.permissions ?? []
 }

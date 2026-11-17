@@ -64,8 +64,47 @@ export interface InkDispense {
   id: string
   inkId: string
   department: string
+  scope?: Classification
+  recipientName?: string | null
   quantity: number
   date: string
+}
+
+export type InkVoucherStatus = 'pending' | 'dispensed' | 'rejected'
+
+export interface InkVoucherLineItem {
+  inkId: string
+  model: string
+  brand?: string
+  color: string
+  quantity: number
+}
+
+export interface InkVoucher {
+  id: string
+  department: string
+  scope?: Classification
+  recipientName?: string | null
+  requesterId?: string | null
+  requesterName: string
+  status: InkVoucherStatus
+  items: InkVoucherLineItem[]
+  notes?: string | null
+  approvedById?: string | null
+  approvedByName?: string | null
+  dispensedAt?: string | null
+  date: string
+}
+
+export const INK_DISPENSE_SCOPES: Record<Classification, { label: string; hint: string }> = {
+  shared: { label: 'جماعي للإدارة', hint: 'مشترك لطابعة الإدارة أو القسم' },
+  personal: { label: 'موظف محدد', hint: 'صرف باسم موظف معين داخل الإدارة' },
+}
+
+export const INK_VOUCHER_STATUSES: Record<InkVoucherStatus, { label: string; tone: 'amber' | 'green' | 'red' }> = {
+  pending: { label: 'قيد الانتظار', tone: 'amber' },
+  dispensed: { label: 'تم الصرف', tone: 'green' },
+  rejected: { label: 'مرفوض', tone: 'red' },
 }
 
 export type Permission =
@@ -76,6 +115,9 @@ export type Permission =
   | 'devices.manage'
   | 'inks.view'
   | 'inks.manage'
+  | 'inks.vouchers.view'
+  | 'inks.vouchers.create'
+  | 'inks.vouchers.approve'
   | 'subscriptions.view'
   | 'subscriptions.manage'
   | 'dictionary.deviceTypes'
@@ -128,6 +170,9 @@ export const PERMISSIONS: Record<Permission, { label: string; group: string }> =
   'devices.manage': { label: 'إدارة الأجهزة (إضافة/تعديل/حذف)', group: 'الأجهزة' },
   'inks.view': { label: 'عرض مخزون الأحبار', group: 'الأحبار' },
   'inks.manage': { label: 'إدارة الأحبار (صرف/توريد/تعديل)', group: 'الأحبار' },
+  'inks.vouchers.view': { label: 'أذونات صرف الأحبار: عرض السجل', group: 'الأحبار' },
+  'inks.vouchers.create': { label: 'أذونات صرف الأحبار: إصدار إذن (قيد الانتظار)', group: 'الأحبار' },
+  'inks.vouchers.approve': { label: 'أذونات صرف الأحبار: اعتماد وتنفيذ الصرف (تم الصرف / رفض)', group: 'الأحبار' },
   'subscriptions.view': { label: 'عرض الاشتراكات والتراخيص', group: 'الاشتراكات' },
   'subscriptions.manage': { label: 'إدارة الاشتراكات (إضافة/تجديد/حذف)', group: 'الاشتراكات' },
   'dictionary.deviceTypes': { label: 'القاموس: إدارة أنواع الأجهزة', group: 'القاموس' },

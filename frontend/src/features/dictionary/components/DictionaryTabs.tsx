@@ -1,19 +1,31 @@
 import { NavLink } from 'react-router-dom'
 import { Briefcase, Palette, Printer, Stack, Tag } from '@phosphor-icons/react'
 import { cx } from '../../../shared/components/ui'
+import { useCurrentPermissions } from '../../../shared/data/auth'
+import type { Permission } from '../../../shared/data/types'
 
-const TABS = [
-  { to: '/dictionary/device-types', label: 'أنواع الأجهزة', icon: Stack },
-  { to: '/dictionary/printer-types', label: 'أنواع الطابعات', icon: Printer },
-  { to: '/dictionary/ink-colors', label: 'ألوان الأحبار', icon: Palette },
-  { to: '/dictionary/brands', label: 'الماركات', icon: Tag },
-  { to: '/dictionary/services', label: 'الخدمات والمزودون', icon: Briefcase },
-]
+export const DICTIONARY_TABS: {
+  to: string
+  label: string
+  icon: typeof Stack
+  permissions: Permission[]
+}[] = [
+    { to: '/dictionary/device-types', label: 'أنواع الأجهزة', icon: Stack, permissions: ['dictionary.deviceTypes'] },
+    { to: '/dictionary/printer-types', label: 'أنواع الطابعات', icon: Printer, permissions: ['dictionary.printerTypes', 'dictionary.inkColors'] },
+    { to: '/dictionary/ink-colors', label: 'ألوان الأحبار', icon: Palette, permissions: ['dictionary.inkColors'] },
+    { to: '/dictionary/brands', label: 'الماركات', icon: Tag, permissions: ['dictionary.brands'] },
+    { to: '/dictionary/services', label: 'الخدمات والمزودون', icon: Briefcase, permissions: ['dictionary.services'] },
+  ]
 
 export function DictionaryTabs() {
+  const userPerms = useCurrentPermissions()
+  const visibleTabs = DICTIONARY_TABS.filter((tab) =>
+    tab.permissions.some((p) => userPerms.includes(p)),
+  )
+
   return (
     <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-      {TABS.map(({ to, label, icon: Icon }) => (
+      {visibleTabs.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -37,4 +49,3 @@ export function DictionaryTabs() {
     </div>
   )
 }
-

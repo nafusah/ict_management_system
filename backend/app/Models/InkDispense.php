@@ -12,7 +12,7 @@ class InkDispense extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'ink_id', 'department', 'quantity', 'date'];
+    protected $fillable = ['id', 'ink_id', 'department', 'scope', 'recipient_name', 'quantity', 'date'];
 
     protected $casts = [
         'quantity' => 'integer',

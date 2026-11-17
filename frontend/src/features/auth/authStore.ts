@@ -44,6 +44,7 @@ export interface AuthState {
   justLoggedIn: boolean
   clearJustLoggedIn: () => void
   setSession: (session: AuthSession | null, remember: boolean) => void
+  syncSessionProfile: (user: Pick<AppUser, 'id' | 'name' | 'email' | 'department' | 'permissions'>) => void
   login: (
     email: string,
     password: string,
@@ -69,6 +70,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSession: (session, remember) => {
     writeSession(session, remember)
     set({ session })
+  },
+
+  syncSessionProfile: (user) => {
+    const current = get().session
+    if (!current || current.userId !== user.id) return
+    const updated: AuthSession = {
+      ...current,
+      name: user.name,
+      email: user.email,
+      department: user.department,
+      permissions: user.permissions,
+    }
+    const remember = (() => {
+      try {
+        return localStorage.getItem(AUTH_KEY) !== null
+      } catch {
+        return true
+      }
+    })()
+    writeSession(updated, remember)
+    set({ session: updated })
   },
 
   recordAudit: (action, entityType, summary, entityId) => {
@@ -114,7 +136,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ justLoggedIn: true, hydrating: true })
       get().setSession(session, remember)
       try {
-        await hydrateAllFromApi()
+        await hydrateAllFromApi(session.permissions)
       } finally {
         set({ loading: false, hydrating: false })
       }
@@ -195,7 +217,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     const session = get().session
     if (session?.token) {
-      void request.post('/auth/logout').catch(() => {})
+      void request.post('/auth/logout').catch(() => { })
     } else if (session) {
       get().recordAudit('logout', 'auth', `تسجيل خروج: ${session.name}`, session.userId)
     }
@@ -204,6 +226,78 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }))
 
+const VOUCHER_PERM_MIGRATION_KEY = 'it-management:migrated-vouchers-perms-v1'
+
+function migrateLocalVoucherPermissions() {
+  if (typeof window === 'undefined') return
+  try {
+    if (localStorage.getItem(VOUCHER_PERM_MIGRATION_KEY) === '1') return
+
+    const mergePerms = (existing: Permission[], extra: Permission[]): Permission[] => {
+      const next = new Set(existing)
+      for (const p of extra) next.add(p)
+      return Array.from(next)
+    }
+
+    const users = usersStore.getAll()
+    let changed = false
+    const migratedUsers = users.map((u) => {
+      if (
+        u.id === 'USR-001' ||
+        u.permissions.includes('settings.manage') ||
+        u.permissions.includes('inks.manage')
+      ) {
+        const nextPerms = mergePerms(u.permissions, [
+          'inks.vouchers.view',
+          'inks.vouchers.create',
+          'inks.vouchers.approve',
+        ])
+        if (nextPerms.length !== u.permissions.length) {
+          changed = true
+          return { ...u, permissions: nextPerms }
+        }
+      } else if (u.id === 'USR-002') {
+        const nextPerms = mergePerms(u.permissions, ['inks.vouchers.view', 'inks.vouchers.create'])
+        if (nextPerms.length !== u.permissions.length) {
+          changed = true
+          return { ...u, permissions: nextPerms }
+        }
+      } else if (u.id === 'USR-003') {
+        const nextPerms = mergePerms(u.permissions, ['inks.vouchers.view'])
+        if (nextPerms.length !== u.permissions.length) {
+          changed = true
+          return { ...u, permissions: nextPerms }
+        }
+      }
+      return u
+    })
+
+    if (changed) {
+      usersStore.setAll(migratedUsers)
+    }
+
+    const session = useAuthStore.getState().session
+    if (session && !session.token) {
+      const matched = migratedUsers.find((u) => u.id === session.userId)
+      if (matched) {
+        useAuthStore.getState().syncSessionProfile(matched)
+      }
+    }
+
+    localStorage.setItem(VOUCHER_PERM_MIGRATION_KEY, '1')
+  } catch {
+    // التخزين غير متاح
+  }
+}
+
+migrateLocalVoucherPermissions()
+
 if (useAuthStore.getState().session?.token) {
-  void hydrateAllFromApi()
+  void request
+    .get<AppUser>('/auth/me')
+    .then((me) => {
+      useAuthStore.getState().syncSessionProfile(me)
+      return hydrateAllFromApi(me.permissions)
+    })
+    .catch(() => hydrateAllFromApi())
 }

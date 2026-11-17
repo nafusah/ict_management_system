@@ -152,59 +152,75 @@ dialog.modal-closing::backdrop {
   animation: toast-exit 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-@keyframes water-wave {
-  from {
-    transform: translateX(-50%) rotate(0deg);
+/* Sidebar Spotlight effect */
+@keyframes spotlight-swing-down {
+  0% {
+    transform: perspective(300px) rotateZ(0deg) skewY(0deg);
   }
-
-  to {
-    transform: translateX(-50%) rotate(360deg);
+  40% {
+    transform: perspective(300px) rotateZ(-3.5deg) skewY(-3deg);
+  }
+  100% {
+    transform: perspective(300px) rotateZ(0deg) skewY(0deg);
   }
 }
 
-.sidebar-water {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
+@keyframes spotlight-swing-up {
+  0% {
+    transform: perspective(300px) rotateZ(0deg) skewY(0deg);
+  }
+  40% {
+    transform: perspective(300px) rotateZ(3.5deg) skewY(3deg);
+  }
+  100% {
+    transform: perspective(300px) rotateZ(0deg) skewY(0deg);
+  }
 }
 
-.sidebar-water::before,
-.sidebar-water::after {
-  content: "";
+.sidebar-spotlight {
   position: absolute;
-  left: 50%;
-  top: 115%;
-  width: 240%;
-  aspect-ratio: 1;
-  border-radius: 40%;
+  inset-inline: 0.5rem;
+  top: 0;
   pointer-events: none;
   z-index: 0;
-  transform: translateX(-50%) rotate(0deg);
-  transition: top 550ms cubic-bezier(0.22, 1, 0.36, 1), opacity 300ms ease;
-  opacity: 0;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), height 260ms ease, opacity 220ms ease;
 }
 
-.sidebar-water::before {
-  background: rgb(252 196 26 / 0.16);
-  animation: water-wave 6s linear infinite;
+.sidebar-spotlight-beam {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  transform-origin: right center;
+  background: linear-gradient(
+    270deg,
+    rgb(252 196 26 / 0.26) 0%,
+    rgb(255 255 255 / 0.11) 42%,
+    rgb(255 255 255 / 0.02) 82%,
+    transparent 100%
+  );
+  clip-path: polygon(100% 18%, 100% 82%, 0% 100%, 0% 0%);
 }
 
-.sidebar-water::after {
-  border-radius: 36%;
-  background: rgb(252 196 26 / 0.1);
-  animation: water-wave 9s linear infinite reverse;
+.sidebar-spotlight-swing-down .sidebar-spotlight-beam {
+  animation: spotlight-swing-down 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.sidebar-water:hover::before,
-.sidebar-water.sidebar-water-active::before {
-  top: -45%;
-  opacity: 1;
+.sidebar-spotlight-swing-up .sidebar-spotlight-beam {
+  animation: spotlight-swing-up 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.sidebar-water:hover::after,
-.sidebar-water.sidebar-water-active::after {
-  top: -38%;
-  opacity: 1;
+.sidebar-spotlight-lamp {
+  position: absolute;
+  inset-inline-start: -0.25rem;
+  top: 50%;
+  width: 4px;
+  height: 62%;
+  transform: translateY(-50%);
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #fffbeb 0%, #fcc41a 50%, #fffbeb 100%);
+  box-shadow:
+    0 0 12px 2px rgb(252 196 26 / 0.85),
+    0 0 24px 4px rgb(252 196 26 / 0.35);
 }
 
 .illustration svg {
