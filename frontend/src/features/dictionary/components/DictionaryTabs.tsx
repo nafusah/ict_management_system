@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { Briefcase, Palette, Stack, Tag } from '@phosphor-icons/react'
+import { Briefcase, Palette, Printer, Stack, Tag } from '@phosphor-icons/react'
 import { cx } from '../../../shared/components/ui'
 
 const TABS = [
   { to: '/dictionary/device-types', label: 'أنواع الأجهزة', icon: Stack },
+  { to: '/dictionary/printer-types', label: 'أنواع الطابعات', icon: Printer },
   { to: '/dictionary/ink-colors', label: 'ألوان الأحبار', icon: Palette },
   { to: '/dictionary/brands', label: 'الماركات', icon: Tag },
   { to: '/dictionary/services', label: 'الخدمات والمزودون', icon: Briefcase },

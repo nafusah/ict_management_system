@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasPrefixedId;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Ink extends Model
@@ -14,7 +15,7 @@ class Ink extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'brand', 'model', 'color', 'quantity', 'alert_threshold'];
+    protected $fillable = ['id', 'brand', 'model', 'color', 'printer_type_id', 'quantity', 'alert_threshold'];
 
     protected $casts = [
         'quantity' => 'integer',
@@ -24,5 +25,10 @@ class Ink extends Model
     protected static function idPrefix(): string
     {
         return 'INK';
+    }
+
+    public function printerType(): BelongsTo
+    {
+        return $this->belongsTo(PrinterType::class, 'printer_type_id');
     }
 }

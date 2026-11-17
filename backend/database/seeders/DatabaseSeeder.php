@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\DeviceType;
 use App\Models\Employee;
 use App\Models\InkColor;
+use App\Models\PrinterType;
 use App\Models\Service;
 use App\Models\ServiceProvider;
 use Illuminate\Database\Seeder;
@@ -53,6 +54,15 @@ class DatabaseSeeder extends Seeder
         }
 
         foreach ([
+            ['id' => 'PRT-001', 'name' => 'HP Color LaserJet Pro M254', 'brand' => 'HP'],
+            ['id' => 'PRT-002', 'name' => 'Canon i-SENSYS MF643Cdw', 'brand' => 'Canon'],
+            ['id' => 'PRT-003', 'name' => 'Epson EcoTank L3250', 'brand' => 'Epson'],
+            ['id' => 'PRT-004', 'name' => 'Xerox VersaLink C400', 'brand' => 'Xerox'],
+        ] as $row) {
+            PrinterType::updateOrCreate(['id' => $row['id']], $row);
+        }
+
+        foreach ([
             ['id' => 'SRV-001', 'name' => 'Microsoft 365 Business Standard'],
             ['id' => 'SRV-002', 'name' => 'Fortinet FortiGate UTM Bundle'],
             ['id' => 'SRV-003', 'name' => 'Adobe Creative Cloud Teams'],
@@ -88,6 +98,7 @@ class DatabaseSeeder extends Seeder
                     'subscriptions.view',
                     'subscriptions.manage',
                     'dictionary.deviceTypes',
+                    'dictionary.printerTypes',
                     'dictionary.inkColors',
                     'dictionary.brands',
                     'dictionary.services',

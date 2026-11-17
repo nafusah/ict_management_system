@@ -76,7 +76,7 @@ const BOTTOM_NAV: NavItem[] = [
     icon: BookOpen,
     indent: true,
     matchPrefix: '/dictionary',
-    permissions: ['dictionary.deviceTypes', 'dictionary.inkColors', 'dictionary.brands', 'dictionary.services'],
+    permissions: ['dictionary.deviceTypes', 'dictionary.printerTypes', 'dictionary.inkColors', 'dictionary.brands', 'dictionary.services'],
   },
 ]
 
@@ -134,11 +134,14 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav aria-label="القائمة الرئيسية" className="flex h-full flex-col bg-slate-900 text-slate-400">
       <div className="flex h-16 items-center justify-center border-b border-slate-800 px-5">
-        <img
-          src="/images/Nafusah-logo-dark-theme.svg"
-          alt="شعار شركة نفوسة"
-          className="h-9 w-auto max-w-full object-contain"
-        />
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/images/ims_logo_dark_theme.svg"
+            alt="شعار النظام"
+            className="h-11 w-11 object-contain"
+          />
+
+        </div>
       </div>
       <ul className="flex flex-1 flex-col gap-1 p-2">
         {visibleNav.map((item) => (

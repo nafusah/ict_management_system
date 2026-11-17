@@ -43,11 +43,19 @@ export interface InkColorItem {
   border: string
 }
 
+export interface PrinterTypeItem {
+  id: string
+  name: string
+  brand?: string
+  image?: string | null
+}
+
 export interface Ink {
   id: string
   brand: string
   model: string
   color: InkColor
+  printerTypeId?: string | null
   quantity: number
   alertThreshold: number
 }
@@ -71,6 +79,7 @@ export type Permission =
   | 'subscriptions.view'
   | 'subscriptions.manage'
   | 'dictionary.deviceTypes'
+  | 'dictionary.printerTypes'
   | 'dictionary.inkColors'
   | 'dictionary.brands'
   | 'dictionary.services'
@@ -122,6 +131,7 @@ export const PERMISSIONS: Record<Permission, { label: string; group: string }> =
   'subscriptions.view': { label: 'عرض الاشتراكات والتراخيص', group: 'الاشتراكات' },
   'subscriptions.manage': { label: 'إدارة الاشتراكات (إضافة/تجديد/حذف)', group: 'الاشتراكات' },
   'dictionary.deviceTypes': { label: 'القاموس: إدارة أنواع الأجهزة', group: 'القاموس' },
+  'dictionary.printerTypes': { label: 'القاموس: إدارة أنواع الطابعات', group: 'القاموس' },
   'dictionary.inkColors': { label: 'القاموس: إدارة ألوان الأحبار', group: 'القاموس' },
   'dictionary.brands': { label: 'القاموس: إدارة الماركات', group: 'القاموس' },
   'dictionary.services': { label: 'القاموس: إدارة الخدمات والمزودين', group: 'القاموس' },

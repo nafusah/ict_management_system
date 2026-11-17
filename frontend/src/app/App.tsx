@@ -7,6 +7,7 @@ import Dashboard from '../features/dashboard/DashboardPage'
 import DeviceTypes from '../features/dictionary/DeviceTypesPage'
 import Devices from '../features/devices/DevicesPage'
 import InkColors from '../features/dictionary/InkColorsPage'
+import PrinterTypes from '../features/dictionary/PrinterTypesPage'
 import Inks from '../features/inks/InksPage'
 import ServicesSettings from '../features/dictionary/ServicesSettingsPage'
 import AuditLogs from '../features/settings/AuditLogsPage'
@@ -109,6 +110,14 @@ export default function App() {
             element={
               <RequirePermission allow={['dictionary.deviceTypes']}>
                 <DeviceTypes />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="dictionary/printer-types"
+            element={
+              <RequirePermission allow={['dictionary.printerTypes', 'dictionary.inkColors']}>
+                <PrinterTypes />
               </RequirePermission>
             }
           />

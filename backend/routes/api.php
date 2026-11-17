@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\DeviceTypeController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\InkColorController;
 use App\Http\Controllers\Api\InkController;
+use App\Http\Controllers\Api\PrinterTypeController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\ServiceProviderController;
 use App\Http\Controllers\Api\SettingController;
@@ -87,6 +88,11 @@ Route::middleware('auth.api')->group(function () {
         Route::post('ink-colors', [InkColorController::class, 'store'])->middleware('permission:dictionary.inkColors');
         Route::put('ink-colors/{ink_color}', [InkColorController::class, 'update'])->middleware('permission:dictionary.inkColors');
         Route::delete('ink-colors/{ink_color}', [InkColorController::class, 'destroy'])->middleware('permission:dictionary.inkColors');
+
+        Route::get('printer-types', [PrinterTypeController::class, 'index'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors,inks.view,inks.manage,dashboard.inks');
+        Route::post('printer-types', [PrinterTypeController::class, 'store'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors');
+        Route::put('printer-types/{printer_type}', [PrinterTypeController::class, 'update'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors');
+        Route::delete('printer-types/{printer_type}', [PrinterTypeController::class, 'destroy'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors');
 
         Route::get('services', [ServiceController::class, 'index'])->middleware('permission:dictionary.services,subscriptions.view,subscriptions.manage');
         Route::post('services', [ServiceController::class, 'store'])->middleware('permission:dictionary.services');

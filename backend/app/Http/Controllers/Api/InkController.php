@@ -22,6 +22,7 @@ class InkController extends CrudController
             'brand' => ['required', 'string', 'max:255'],
             'model' => ['required', 'string', 'max:255'],
             'color' => ['required', 'string', 'max:32'],
+            'printer_type_id' => ['nullable', 'string', 'max:32', 'exists:printer_types,id'],
             'quantity' => ['required', 'integer', 'min:0'],
             'alert_threshold' => ['required', 'integer', 'min:0'],
         ];

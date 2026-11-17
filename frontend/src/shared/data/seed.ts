@@ -5,6 +5,7 @@ import type {
   DeviceTypeItem,
   Ink,
   InkColorItem,
+  PrinterTypeItem,
   ServiceItem,
   ServiceProviderItem,
   Subscription,
@@ -31,15 +32,22 @@ export const SEED_DEVICE_TYPES: DeviceTypeItem[] = [
   { id: 'other', label: 'أخرى', icon: 'other' },
 ]
 
+export const SEED_PRINTER_TYPES: PrinterTypeItem[] = [
+  { id: 'PRT-001', name: 'HP Color LaserJet Pro M254', brand: 'HP' },
+  { id: 'PRT-002', name: 'Canon i-SENSYS MF643Cdw', brand: 'Canon' },
+  { id: 'PRT-003', name: 'Epson EcoTank L3250', brand: 'Epson' },
+  { id: 'PRT-004', name: 'Xerox VersaLink C400', brand: 'Xerox' },
+]
+
 export const SEED_INKS: Ink[] = [
-  { id: 'INK-001', brand: 'HP', model: 'HP LaserJet 205A (CF530A)', color: 'black', quantity: 3, alertThreshold: 5 },
-  { id: 'INK-002', brand: 'HP', model: 'HP LaserJet 205A (CF531A)', color: 'cyan', quantity: 8, alertThreshold: 4 },
-  { id: 'INK-003', brand: 'HP', model: 'HP LaserJet 205A (CF533A)', color: 'magenta', quantity: 2, alertThreshold: 4 },
-  { id: 'INK-004', brand: 'HP', model: 'HP LaserJet 205A (CF532A)', color: 'yellow', quantity: 6, alertThreshold: 4 },
-  { id: 'INK-005', brand: 'Canon', model: 'Canon 054 H High Yield', color: 'black', quantity: 12, alertThreshold: 5 },
-  { id: 'INK-006', brand: 'Canon', model: 'Canon 054 Cyan', color: 'cyan', quantity: 1, alertThreshold: 3 },
-  { id: 'INK-007', brand: 'Epson', model: 'EcoTank 103 Magenta', color: 'magenta', quantity: 15, alertThreshold: 6 },
-  { id: 'INK-008', brand: 'Xerox', model: 'VersaLink C400 Yellow', color: 'yellow', quantity: 7, alertThreshold: 3 },
+  { id: 'INK-001', brand: 'HP', model: 'HP LaserJet 205A (CF530A)', color: 'black', printerTypeId: 'PRT-001', quantity: 3, alertThreshold: 5 },
+  { id: 'INK-002', brand: 'HP', model: 'HP LaserJet 205A (CF531A)', color: 'cyan', printerTypeId: 'PRT-001', quantity: 8, alertThreshold: 4 },
+  { id: 'INK-003', brand: 'HP', model: 'HP LaserJet 205A (CF533A)', color: 'magenta', printerTypeId: 'PRT-001', quantity: 2, alertThreshold: 4 },
+  { id: 'INK-004', brand: 'HP', model: 'HP LaserJet 205A (CF532A)', color: 'yellow', printerTypeId: 'PRT-001', quantity: 6, alertThreshold: 4 },
+  { id: 'INK-005', brand: 'Canon', model: 'Canon 054 H High Yield', color: 'black', printerTypeId: 'PRT-002', quantity: 12, alertThreshold: 5 },
+  { id: 'INK-006', brand: 'Canon', model: 'Canon 054 Cyan', color: 'cyan', printerTypeId: 'PRT-002', quantity: 1, alertThreshold: 3 },
+  { id: 'INK-007', brand: 'Epson', model: 'EcoTank 103 Magenta', color: 'magenta', printerTypeId: 'PRT-003', quantity: 15, alertThreshold: 6 },
+  { id: 'INK-008', brand: 'Xerox', model: 'VersaLink C400 Yellow', color: 'yellow', printerTypeId: 'PRT-004', quantity: 7, alertThreshold: 3 },
 ]
 
 export const SEED_INK_COLORS: InkColorItem[] = [
@@ -83,6 +91,7 @@ export const SEED_USERS: AppUser[] = [
       'subscriptions.view',
       'subscriptions.manage',
       'dictionary.deviceTypes',
+      'dictionary.printerTypes',
       'dictionary.inkColors',
       'dictionary.brands',
       'dictionary.services',

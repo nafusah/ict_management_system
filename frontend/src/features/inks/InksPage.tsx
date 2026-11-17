@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowDownToLine, ArrowUpFromLine, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Minus, Pencil, Plus, Printer, Trash2 } from 'lucide-react'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import {
   Button,
@@ -22,7 +22,7 @@ import {
 } from '../../shared/components/ui'
 import { getStoredToken } from '../../shared/data/api'
 import { recordAudit, usePermission } from '../../shared/data/auth'
-import { inkDispensesStore, inksStore, syncBatchInkDispenseWithServer, syncInkDispenseWithServer, useBrands, useDepartments, useInkColors, useInkDispenses, useInks } from '../../shared/data/store'
+import { inkDispensesStore, inksStore, syncBatchInkDispenseWithServer, syncInkDispenseWithServer, useBrands, useDepartments, useInkColors, useInkDispenses, useInks, usePrinterTypes } from '../../shared/data/store'
 import { OTHER } from '../../shared/data/options'
 import { isLowStock } from '../../shared/data/types'
 import type { Ink, InkColor, InkColorItem } from '../../shared/data/types'
@@ -52,7 +52,9 @@ export default function Inks() {
   const canManage = usePermission('inks.manage')
   const inks = useInks()
   const inkColors = useInkColors()
+  const printerTypes = usePrinterTypes()
   const colorMap = useMemo(() => Object.fromEntries(inkColors.map((c) => [c.id, c])), [inkColors])
+  const printerTypeMap = useMemo(() => Object.fromEntries(printerTypes.map((p) => [p.id, p])), [printerTypes])
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -66,6 +68,8 @@ export default function Inks() {
 
   const colorParam = params.get('color')
   const colorFilter = colorParam && colorParam in colorMap ? colorParam : null
+  const printerParam = params.get('printerType')
+  const printerFilter = printerParam && printerParam in printerTypeMap ? printerParam : null
   const lowOnly = params.get('low') === '1'
 
   const setFilter = (key: string, value: string | null) => {
@@ -78,13 +82,19 @@ export default function Inks() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return inks.filter(
-      (i) =>
+    return inks.filter((i) => {
+      const printerName = i.printerTypeId ? (printerTypeMap[i.printerTypeId]?.name ?? '') : ''
+      return (
         (!colorFilter || i.color === colorFilter) &&
+        (!printerFilter || i.printerTypeId === printerFilter) &&
         (!lowOnly || isLowStock(i)) &&
-        (!q || [i.model, i.brand, colorMap[i.color]?.name ?? i.color].some((v) => v.toLowerCase().includes(q))),
-    )
-  }, [inks, query, colorFilter, lowOnly, colorMap])
+        (!q ||
+          [i.model, i.brand, printerName, colorMap[i.color]?.name ?? i.color].some((v) =>
+            v.toLowerCase().includes(q),
+          ))
+      )
+    })
+  }, [inks, query, colorFilter, printerFilter, lowOnly, colorMap, printerTypeMap])
 
   const lowCount = inks.filter(isLowStock).length
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -95,7 +105,7 @@ export default function Inks() {
     <>
       <PageHeader
         title="مخزون الأحبار"
-        description="كميات خراطيش الأحبار الأربعة، مع تنبيه عند وصول أي صنف إلى حد الطلب."
+        description="تصنيف كميات خراطيش الأحبار حسب نوع الطابعة، مع تنبيه عند وصول أي صنف إلى حد الطلب."
         action={
           canManage ? (
             <div className="flex flex-wrap gap-2">
@@ -119,8 +129,25 @@ export default function Inks() {
             setQuery(v)
             setPage(1)
           }}
-          placeholder="ابحث بالموديل أو الماركة أو اللون"
+          placeholder="ابحث بالموديل أو نوع الطابعة أو الماركة أو اللون"
         />
+        {printerTypes.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="تصفية حسب نوع الطابعة">
+            <FilterChip active={!printerFilter} onClick={() => setFilter('printerType', null)}>
+              كل الطابعات
+            </FilterChip>
+            {printerTypes.map((pt) => (
+              <FilterChip
+                key={pt.id}
+                active={printerFilter === pt.id}
+                onClick={() => setFilter('printerType', pt.id)}
+              >
+                <Printer className="size-3.5 text-slate-500" />
+                <bdi>{pt.name}</bdi>
+              </FilterChip>
+            ))}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="تصفية حسب اللون">
           <FilterChip active={!colorFilter} onClick={() => setFilter('color', null)}>
             كل الألوان
@@ -144,6 +171,7 @@ export default function Inks() {
             <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th scope="col" className="px-4 py-3 text-start font-semibold">الصنف</th>
+                <th scope="col" className="px-4 py-3 text-start font-semibold">نوع الطابعة</th>
                 <th scope="col" className="px-4 py-3 text-start font-semibold">الكمية المتوفرة</th>
                 <th scope="col" className="px-4 py-3 text-start font-semibold">حد الطلب</th>
                 <th scope="col" className="px-4 py-3 text-start font-semibold">الحالة</th>
@@ -156,6 +184,7 @@ export default function Inks() {
               {rows.map((ink) => {
                 const low = isLowStock(ink)
                 const meta = colorMap[ink.color] ?? FALLBACK_COLOR
+                const printerType = ink.printerTypeId ? printerTypeMap[ink.printerTypeId] : undefined
                 return (
                   <tr
                     key={ink.id}
@@ -174,6 +203,16 @@ export default function Inks() {
                           </div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {printerType ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-800">
+                          <Printer className="size-3.5 text-slate-500" />
+                          <bdi>{printerType.name}</bdi>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">غير محدد</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -302,10 +341,15 @@ function InkDetailsModal({
 }) {
   const canManage = usePermission('inks.manage')
   const inkColors = useInkColors()
+  const printerTypes = usePrinterTypes()
   const departments = useDepartments()
   const deptNames = useMemo(() => departments.map((d) => d.name), [departments])
   const allDispenses = useInkDispenses()
   const inkDispenses = useMemo(() => allDispenses.filter((d) => d.inkId === ink.id).slice(0, 5), [allDispenses, ink.id])
+  const linkedPrinter = useMemo(
+    () => (ink.printerTypeId ? printerTypes.find((p) => p.id === ink.printerTypeId) : undefined),
+    [printerTypes, ink.printerTypeId],
+  )
   const [mode, setMode] = useState<'dispense' | 'restock'>('dispense')
   const [amountStr, setAmountStr] = useState('1')
   const [dept, setDept] = useState<string>(deptNames[0] ?? OTHER)
@@ -403,7 +447,7 @@ function InkDetailsModal({
               </h3>
               {low ? <Pill tone="amber">تحت حد الطلب</Pill> : <Pill tone="green">كافٍ</Pill>}
             </div>
-            <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-600">
               <Swatch meta={meta} />
               <span>
                 الماركة: <strong className="font-semibold text-slate-800"><bdi>{ink.brand}</bdi></strong>
@@ -412,6 +456,14 @@ function InkDetailsModal({
               <span>
                 اللون: <strong className="font-semibold text-slate-800">{meta.name} ({meta.code})</strong>
               </span>
+              {linkedPrinter && (
+                <>
+                  <span aria-hidden className="text-slate-300">•</span>
+                  <span>
+                    الطابعة: <strong className="font-semibold text-slate-800"><bdi>{linkedPrinter.name}</bdi></strong>
+                  </span>
+                </>
+              )}
             </p>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -611,9 +663,17 @@ function InkForm({
 }) {
   const inkColors = useInkColors()
   const brands = useBrands()
+  const printerTypes = usePrinterTypes()
   const brandOptions = useMemo(
     () => [...brands.filter((b) => b.category === 'ink').map((b) => b.name), OTHER],
     [brands],
+  )
+  const printerOptions = useMemo(
+    () => [
+      { value: '', label: '— غير مربوط بطابعة محددة —' },
+      ...printerTypes.map((p) => ({ value: p.id, label: p.brand ? `${p.name} (${p.brand})` : p.name })),
+    ],
+    [printerTypes],
   )
   const isEdit = ink !== null
   const knownBrand = !ink || brandOptions.includes(ink.brand)
@@ -621,6 +681,7 @@ function InkForm({
   const [brand, setBrand] = useState(ink ? (knownBrand ? ink.brand : OTHER) : brandOptions[0])
   const [customBrand, setCustomBrand] = useState(ink && !knownBrand ? ink.brand : '')
   const [model, setModel] = useState(ink?.model ?? '')
+  const [printerTypeId, setPrinterTypeId] = useState(ink?.printerTypeId ?? '')
   const [color, setColor] = useState<InkColor>(ink?.color ?? inkColors[0]?.id ?? 'black')
   const [quantity, setQuantity] = useState(String(ink?.quantity ?? ''))
   const [threshold, setThreshold] = useState(String(ink?.alertThreshold ?? ''))
@@ -643,6 +704,7 @@ function InkForm({
       brand: brand === OTHER ? customBrand.trim() : brand,
       model: model.trim(),
       color,
+      printerTypeId: printerTypeId || null,
       quantity: Number(quantity),
       alertThreshold: Number(threshold),
     }
@@ -716,6 +778,20 @@ function InkForm({
             </Field>
           </div>
         )}
+
+        <div className="sm:col-span-2">
+          <Field label="نوع الطابعة المرتبطة" hint="اختر الطابعة التي يستخدمها هذا الحبر">
+            {(id) => (
+              <SearchableSelect
+                id={id}
+                value={printerTypeId}
+                onChange={setPrinterTypeId}
+                options={printerOptions}
+                searchPlaceholder="ابحث عن نوع الطابعة..."
+              />
+            )}
+          </Field>
+        </div>
 
         <fieldset className="sm:col-span-2">
           <legend className="mb-1.5 text-sm font-medium text-slate-700">اللون</legend>

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import { Pill } from '../../shared/components/ui'
-import { useDeviceTypes, useDevices, useInkColors, useInks, useSubscriptions } from '../../shared/data/store'
+import { useDeviceTypes, useDevices, useInks, usePrinterTypes, useSubscriptions } from '../../shared/data/store'
 import { SUBSCRIPTION_STATUSES, daysUntilExpiry, getSubscriptionStatus, isLowStock } from '../../shared/data/types'
 import type { DeviceKind, SubscriptionStatus } from '../../shared/data/types'
 
@@ -55,6 +55,7 @@ function SmallCard({
   to,
   svg,
   svgLabel,
+  imageUrl,
   value,
   label,
   note,
@@ -63,6 +64,7 @@ function SmallCard({
   to: string
   svg: string
   svgLabel: string
+  imageUrl?: string | null
   value: number
   label: string
   note?: ReactNode
@@ -70,7 +72,15 @@ function SmallCard({
 }) {
   return (
     <Link to={to} className={`${cardBase} p-4`}>
-      <Illustration svg={svg} label={svgLabel} className={`mx-auto ${artClass}`} />
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={svgLabel}
+          className={`mx-auto ${artClass} w-auto max-w-full rounded-lg object-contain`}
+        />
+      ) : (
+        <Illustration svg={svg} label={svgLabel} className={`mx-auto ${artClass}`} />
+      )}
       <div className="mt-4 flex items-baseline gap-2">
         <span className="text-3xl font-extrabold tabular-nums">{value}</span>
         <span className="truncate text-sm font-semibold text-slate-700">{label}</span>
@@ -84,7 +94,7 @@ export default function Dashboard() {
   const devices = useDevices()
   const deviceTypes = useDeviceTypes()
   const inks = useInks()
-  const inkColors = useInkColors()
+  const printerTypes = usePrinterTypes()
   const subscriptions = useSubscriptions()
 
   const totalCartridges = inks.reduce((s, i) => s + i.quantity, 0)
@@ -156,38 +166,55 @@ export default function Dashboard() {
         />
       </section>
 
-      <section aria-labelledby="inks-by-color">
-        <h2 id="inks-by-color" className="mb-4 text-lg font-bold">
-          الأحبار حسب اللون
-        </h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {inkColors.map((meta) => {
-            const items = inks.filter((i) => i.color === meta.id)
-            const total = items.reduce((s, i) => s + i.quantity, 0)
-            const low = items.filter(isLowStock).length
-            return (
-              <SmallCard
-                key={meta.id}
-                to={`/inks?color=${meta.id}`}
-                svg={Illustrations.cartridge(meta)}
-                svgLabel={`رسمة خرطوشة حبر ${meta.name}`}
-                value={total}
-                label={`${meta.name} (${meta.code})`}
-                note={
-                  items.length === 0 ? (
-                    'لا توجد أصناف'
-                  ) : low === 0 ? (
-                    'المخزون كافٍ'
-                  ) : (
-                    <WarningNote>
-                      {countItems(low)} تحت الحد
-                    </WarningNote>
-                  )
-                }
-              />
-            )
-          })}
+      <section aria-labelledby="inks-by-printer">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 id="inks-by-printer" className="text-lg font-bold">
+            الطابعات والأحبار المرتبطة بها
+          </h2>
+          <Link to="/dictionary/printer-types" className="text-xs font-semibold text-slate-600 hover:text-slate-900">
+            إدارة أنواع الطابعات ←
+          </Link>
         </div>
+        {printerTypes.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+            لم يتم إضافة أنواع طابعات بعد. أضف أنواع الطابعات من{' '}
+            <Link to="/dictionary/printer-types" className="font-semibold text-slate-900 underline">
+              القاموس
+            </Link>{' '}
+            لربطها بالأحبار.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {printerTypes.map((pt) => {
+              const items = inks.filter((i) => i.printerTypeId === pt.id)
+              const total = items.reduce((s, i) => s + i.quantity, 0)
+              const low = items.filter(isLowStock).length
+              return (
+                <SmallCard
+                  key={pt.id}
+                  to={`/inks?printerType=${pt.id}`}
+                  svg={Illustrations.device('printer')}
+                  svgLabel={`صورة طابعة ${pt.name}`}
+                  imageUrl={pt.image}
+                  value={total}
+                  label={pt.name}
+                  artClass="h-24"
+                  note={
+                    items.length === 0 ? (
+                      'لا توجد أحبار مربوطة'
+                    ) : low === 0 ? (
+                      `${countItems(items.length)} مربوط • المخزون كافٍ`
+                    ) : (
+                      <WarningNote>
+                        {countItems(low)} تحت الحد
+                      </WarningNote>
+                    )
+                  }
+                />
+              )
+            })}
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="devices-by-kind">

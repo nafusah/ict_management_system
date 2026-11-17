@@ -11,30 +11,30 @@ const TABS: {
   end: boolean
   permissions: Permission[]
 }[] = [
-  { to: '/settings', label: 'الإعدادات العامة', icon: SlidersHorizontal, end: true, permissions: ['settings.manage'] },
-  { to: '/settings/users', label: 'المستخدمين', icon: Users, end: false, permissions: ['settings.manage'] },
-  {
-    to: '/settings/employees',
-    label: 'الموظفين',
-    icon: IdentificationCard,
-    end: false,
-    permissions: ['employees.manage', 'settings.manage'],
-  },
-  {
-    to: '/settings/audit-logs',
-    label: 'سجل التدقيق',
-    icon: ClockCounterClockwise,
-    end: false,
-    permissions: ['settings.manage'],
-  },
-  {
-    to: '/dictionary/device-types',
-    label: 'القاموس',
-    icon: BookOpen,
-    end: false,
-    permissions: ['dictionary.deviceTypes', 'dictionary.inkColors', 'dictionary.brands', 'dictionary.services'],
-  },
-]
+    { to: '/settings', label: 'الإعدادات العامة', icon: SlidersHorizontal, end: true, permissions: ['settings.manage'] },
+    { to: '/settings/users', label: 'المستخدمين', icon: Users, end: false, permissions: ['settings.manage'] },
+    {
+      to: '/settings/employees',
+      label: 'الموظفين',
+      icon: IdentificationCard,
+      end: false,
+      permissions: ['employees.manage', 'settings.manage'],
+    },
+    {
+      to: '/settings/audit-logs',
+      label: 'سجل التدقيق',
+      icon: ClockCounterClockwise,
+      end: false,
+      permissions: ['settings.manage'],
+    },
+    {
+      to: '/dictionary/device-types',
+      label: 'القاموس',
+      icon: BookOpen,
+      end: false,
+      permissions: ['dictionary.deviceTypes', 'dictionary.inkColors', 'dictionary.brands', 'dictionary.services'],
+    },
+  ]
 
 export function SettingsTabs() {
   const userPerms = useCurrentPermissions()
