@@ -4,9 +4,8 @@ import { ShieldAlert } from 'lucide-react'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import { cx } from '../../shared/components/ui'
 import { usePermission } from '../../shared/data/auth'
-import { useDeviceTypes, useDevices, useInks, usePrinterTypes, useSubscriptions } from '../../shared/data/store'
+import { useDevices, useInks, usePrinterTypes, useSubscriptions } from '../../shared/data/store'
 import { getSubscriptionStatus, isLowStock } from '../../shared/data/types'
-import type { DeviceKind } from '../../shared/data/types'
 
 const cardBase =
   'group block rounded-xl border border-slate-200 bg-white transition-colors ' +
@@ -62,55 +61,6 @@ function HeroCard({
   )
 }
 
-function SmallCard({
-  to,
-  svg,
-  svgLabel,
-  imageUrl,
-  value,
-  label,
-  note,
-  artClass = 'h-28',
-}: {
-  to?: string
-  svg: string
-  svgLabel: string
-  imageUrl?: string | null
-  value: number
-  label: string
-  note?: ReactNode
-  artClass?: string
-}) {
-  const content = (
-    <>
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={svgLabel}
-          className={`mx-auto ${artClass} w-auto max-w-full rounded-lg object-contain`}
-        />
-      ) : (
-        <Illustration svg={svg} label={svgLabel} className={`mx-auto ${artClass}`} />
-      )}
-      <div className="mt-4 flex items-baseline gap-2">
-        <span className="text-3xl font-extrabold tabular-nums">{value}</span>
-        <span className="truncate text-sm font-semibold text-slate-700">{label}</span>
-      </div>
-      {note && <div className="mt-2 text-xs text-slate-500">{note}</div>}
-    </>
-  )
-
-  if (!to) {
-    return <div className={`${cardBase} p-4`}>{content}</div>
-  }
-
-  return (
-    <Link to={to} className={`${cardLink} p-4`}>
-      {content}
-    </Link>
-  )
-}
-
 export default function Dashboard() {
   const canDashboardDevices = usePermission('dashboard.devices')
   const canDashboardInks = usePermission('dashboard.inks')
@@ -118,7 +68,6 @@ export default function Dashboard() {
   const canViewDevices = usePermission(['devices.view', 'devices.manage'])
 
   const devices = useDevices()
-  const deviceTypes = useDeviceTypes()
   const inks = useInks()
   const printerTypes = usePrinterTypes()
   const subscriptions = useSubscriptions()
@@ -132,11 +81,6 @@ export default function Dashboard() {
     const st = getSubscriptionStatus(s)
     return st === 'expiring' || st === 'expired'
   }).length
-
-  const kindCounts = devices.reduce<Partial<Record<DeviceKind, number>>>((acc, d) => {
-    acc[d.kind] = (acc[d.kind] ?? 0) + 1
-    return acc
-  }, {})
 
   if (heroCount === 0) {
     return (
