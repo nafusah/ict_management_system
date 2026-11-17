@@ -40,6 +40,9 @@ function writeSession(session: AuthSession | null, remember: boolean) {
 export interface AuthState {
   session: AuthSession | null
   loading: boolean
+  hydrating: boolean
+  justLoggedIn: boolean
+  clearJustLoggedIn: () => void
   setSession: (session: AuthSession | null, remember: boolean) => void
   login: (
     email: string,
@@ -58,6 +61,10 @@ export interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: readSession(),
   loading: false,
+  hydrating: false,
+  justLoggedIn: false,
+
+  clearJustLoggedIn: () => set({ justLoggedIn: false }),
 
   setSession: (session, remember) => {
     writeSession(session, remember)
@@ -104,9 +111,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         permissions: res.user.permissions,
         token: res.token,
       }
+      set({ justLoggedIn: true, hydrating: true })
       get().setSession(session, remember)
-      await hydrateAllFromApi()
-      set({ loading: false })
+      try {
+        await hydrateAllFromApi()
+      } finally {
+        set({ loading: false, hydrating: false })
+      }
       return { ok: true, session }
     } catch (err) {
       set({ loading: false })
@@ -132,6 +143,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const users = usersStore.getAll()
     const admin = users.find((u) => u.active) ?? users[0]
     if (!admin) return
+    set({ justLoggedIn: true })
     get().setSession(
       {
         userId: admin.id,
@@ -187,6 +199,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } else if (session) {
       get().recordAudit('logout', 'auth', `تسجيل خروج: ${session.name}`, session.userId)
     }
+    set({ justLoggedIn: false, hydrating: false })
     get().setSession(null, false)
   },
 }))

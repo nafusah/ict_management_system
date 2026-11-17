@@ -25,6 +25,11 @@ import type { AppUser, Permission } from '../../shared/data/types'
 const IT_DEPARTMENT = 'إدارة الاتصالات وتقنية المعلومات'
 
 const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[]
+const PERMISSION_GROUPS = Array.from(new Set(ALL_PERMISSIONS.map((p) => PERMISSIONS[p].group))).map((group) => ({
+  group,
+  items: ALL_PERMISSIONS.filter((p) => PERMISSIONS[p].group === group),
+}))
+
 const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
   { label: 'مدير نظام (الكل)', permissions: ALL_PERMISSIONS },
   {
@@ -38,9 +43,22 @@ const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
       'inks.view',
       'inks.manage',
       'subscriptions.view',
+      'dictionary.printerTypes',
       'dictionary.inkColors',
       'dictionary.brands',
     ],
+  },
+  {
+    label: 'مسؤول أجهزة',
+    permissions: ['dashboard.devices', 'devices.view', 'devices.manage', 'dictionary.deviceTypes', 'dictionary.brands'],
+  },
+  {
+    label: 'مسؤول أحبار',
+    permissions: ['dashboard.inks', 'inks.view', 'inks.manage', 'dictionary.printerTypes', 'dictionary.inkColors'],
+  },
+  {
+    label: 'مسؤول اشتراكات',
+    permissions: ['dashboard.subscriptions', 'subscriptions.view', 'subscriptions.manage', 'dictionary.services'],
   },
   {
     label: 'مشاهد فقط',
@@ -474,37 +492,44 @@ function UserFormModal({
             </div>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            {ALL_PERMISSIONS.map((perm) => {
-              const checked = permissions.includes(perm)
-              return (
-                <label
-                  key={perm}
-                  className={cx(
-                    'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
-                    checked
-                      ? 'border-slate-900 bg-white font-semibold text-slate-900'
-                      : 'border-slate-200 bg-white/60 text-slate-600 hover:border-slate-300',
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => togglePermission(perm)}
-                    className="sr-only"
-                  />
-                  <span
-                    className={cx(
-                      'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
-                      checked ? 'border-slate-900 bg-slate-900 text-signal' : 'border-slate-300 bg-white',
-                    )}
-                  >
-                    {checked && <Check className="size-3.5 stroke-[3]" />}
-                  </span>
-                  <span className="leading-snug">{PERMISSIONS[perm].label}</span>
-                </label>
-              )
-            })}
+          <div className="space-y-4">
+            {PERMISSION_GROUPS.map(({ group, items }) => (
+              <div key={group}>
+                <div className="mb-2 text-xs font-bold text-slate-500">{group}</div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {items.map((perm) => {
+                    const checked = permissions.includes(perm)
+                    return (
+                      <label
+                        key={perm}
+                        className={cx(
+                          'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                          checked
+                            ? 'border-slate-900 bg-white font-semibold text-slate-900'
+                            : 'border-slate-200 bg-white/60 text-slate-600 hover:border-slate-300',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => togglePermission(perm)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={cx(
+                            'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
+                            checked ? 'border-slate-900 bg-slate-900 text-signal' : 'border-slate-300 bg-white',
+                          )}
+                        >
+                          {checked && <Check className="size-3.5 stroke-[3]" />}
+                        </span>
+                        <span className="leading-snug">{PERMISSIONS[perm].label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           {errors.permissions && <p className="mt-2 text-xs font-medium text-red-700">{errors.permissions}</p>}

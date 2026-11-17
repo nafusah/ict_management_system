@@ -31,14 +31,14 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth.api')->group(function () {
     // Devices
-    Route::get('devices', [DeviceController::class, 'index'])->middleware('permission:devices.view,devices.manage');
+    Route::get('devices', [DeviceController::class, 'index'])->middleware('permission:devices.view,devices.manage,dashboard.devices');
     Route::post('devices', [DeviceController::class, 'store'])->middleware('permission:devices.manage');
     Route::put('devices/{device}', [DeviceController::class, 'update'])->middleware('permission:devices.manage');
     Route::patch('devices/{device}', [DeviceController::class, 'update'])->middleware('permission:devices.manage');
     Route::delete('devices/{device}', [DeviceController::class, 'destroy'])->middleware('permission:devices.manage');
 
     // Inks
-    Route::get('inks', [InkController::class, 'index'])->middleware('permission:inks.view,inks.manage');
+    Route::get('inks', [InkController::class, 'index'])->middleware('permission:inks.view,inks.manage,dashboard.inks');
     Route::get('inks/dispenses', [InkController::class, 'dispenses'])->middleware('permission:inks.view,inks.manage');
     Route::post('inks/dispense-batch', [InkController::class, 'dispenseBatch'])->middleware('permission:inks.manage');
     Route::post('inks/{id}/dispense', [InkController::class, 'dispense'])->middleware('permission:inks.manage');
@@ -48,7 +48,7 @@ Route::middleware('auth.api')->group(function () {
     Route::delete('inks/{ink}', [InkController::class, 'destroy'])->middleware('permission:inks.manage');
 
     // Subscriptions
-    Route::get('subscriptions', [SubscriptionController::class, 'index'])->middleware('permission:subscriptions.view,subscriptions.manage');
+    Route::get('subscriptions', [SubscriptionController::class, 'index'])->middleware('permission:subscriptions.view,subscriptions.manage,dashboard.subscriptions');
     Route::post('subscriptions', [SubscriptionController::class, 'store'])->middleware('permission:subscriptions.manage');
     Route::put('subscriptions/{subscription}', [SubscriptionController::class, 'update'])->middleware('permission:subscriptions.manage');
     Route::patch('subscriptions/{subscription}', [SubscriptionController::class, 'update'])->middleware('permission:subscriptions.manage');
@@ -74,7 +74,7 @@ Route::middleware('auth.api')->group(function () {
 
     // Dictionary
     Route::prefix('dictionary')->group(function () {
-        Route::get('device-types', [DeviceTypeController::class, 'index'])->middleware('permission:dictionary.deviceTypes,devices.view,devices.manage');
+        Route::get('device-types', [DeviceTypeController::class, 'index'])->middleware('permission:dictionary.deviceTypes,devices.view,devices.manage,dashboard.devices');
         Route::post('device-types', [DeviceTypeController::class, 'store'])->middleware('permission:dictionary.deviceTypes');
         Route::put('device-types/{device_type}', [DeviceTypeController::class, 'update'])->middleware('permission:dictionary.deviceTypes');
         Route::delete('device-types/{device_type}', [DeviceTypeController::class, 'destroy'])->middleware('permission:dictionary.deviceTypes');
@@ -84,7 +84,7 @@ Route::middleware('auth.api')->group(function () {
         Route::put('brands/{brand}', [BrandController::class, 'update'])->middleware('permission:dictionary.brands');
         Route::delete('brands/{brand}', [BrandController::class, 'destroy'])->middleware('permission:dictionary.brands');
 
-        Route::get('ink-colors', [InkColorController::class, 'index'])->middleware('permission:dictionary.inkColors,inks.view,inks.manage');
+        Route::get('ink-colors', [InkColorController::class, 'index'])->middleware('permission:dictionary.inkColors,inks.view,inks.manage,dashboard.inks');
         Route::post('ink-colors', [InkColorController::class, 'store'])->middleware('permission:dictionary.inkColors');
         Route::put('ink-colors/{ink_color}', [InkColorController::class, 'update'])->middleware('permission:dictionary.inkColors');
         Route::delete('ink-colors/{ink_color}', [InkColorController::class, 'destroy'])->middleware('permission:dictionary.inkColors');

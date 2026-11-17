@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { EnvelopeSimple, Eye, EyeSlash, LockSimple, SignIn, WarningCircle } from '@phosphor-icons/react'
+import { EnvelopeSimple, Eye, EyeSlash, LockSimple, SignIn, SpinnerGap, WarningCircle } from '@phosphor-icons/react'
 import { Toast } from '../../shared/components/ui'
 import { useAuthStore } from './authStore'
 
@@ -85,7 +85,7 @@ export default function LoginPage() {
 
       <Toast message={connectionToast} tone="red" onClose={() => setConnectionToast(null)} />
 
-      <div className="page-transition relative z-10 w-full max-w-[420px]">
+      <div className="login-card-enter relative z-10 w-full max-w-[420px]">
         <main className="liquid-glass-card relative overflow-hidden rounded-[28px] p-6 sm:p-8">
           <div className="relative z-10">
             <header className="mb-6 flex flex-col items-center text-center">
@@ -198,7 +198,11 @@ export default function LoginPage() {
                 disabled={submitting}
                 className="mt-2 inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <SignIn className="size-4" weight="bold" />
+                {submitting ? (
+                  <SpinnerGap className="size-4 animate-spin" weight="bold" />
+                ) : (
+                  <SignIn className="size-4" weight="bold" />
+                )}
                 <span>{submitting ? 'جاري الدخول...' : 'دخول'}</span>
               </button>
             </form>

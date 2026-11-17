@@ -20,7 +20,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 import { useAuthStore } from '../features/auth/authStore'
-import { logout, useAuth, useCurrentPermissions } from '../shared/data/auth'
+import { logout, useAuth, useCurrentPermissions, usePermission } from '../shared/data/auth'
 import { useInkColors, useInks, useSubscriptions } from '../shared/data/store'
 import { daysUntilExpiry, getSubscriptionStatus, isLowStock } from '../shared/data/types'
 import type { Permission } from '../shared/data/types'
@@ -193,11 +193,38 @@ export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
   const session = useAuth()
+  const hydrating = useAuthStore((s) => s.hydrating)
+  const justLoggedIn = useAuthStore((s) => s.justLoggedIn)
+  const clearJustLoggedIn = useAuthStore((s) => s.clearJustLoggedIn)
+  const [showLoginLoader, setShowLoginLoader] = useState(() => justLoggedIn || hydrating)
+  const [minTimePassed, setMinTimePassed] = useState(false)
+  const [loaderFading, setLoaderFading] = useState(false)
+
+  useEffect(() => {
+    if (!showLoginLoader) return
+    const timer = window.setTimeout(() => setMinTimePassed(true), 750)
+    return () => window.clearTimeout(timer)
+  }, [showLoginLoader])
+
+  useEffect(() => {
+    if (!showLoginLoader || !minTimePassed || hydrating) return
+    setLoaderFading(true)
+    const hideTimer = window.setTimeout(() => {
+      setShowLoginLoader(false)
+      clearJustLoggedIn()
+    }, 280)
+    return () => window.clearTimeout(hideTimer)
+  }, [showLoginLoader, minTimePassed, hydrating, clearJustLoggedIn])
+
   const inks = useInks()
   const inkColors = useInkColors()
   const subscriptions = useSubscriptions()
+  const canSeeInkAlerts = usePermission(['dashboard.inks', 'inks.view', 'inks.manage'])
+  const canSeeSubAlerts = usePermission(['dashboard.subscriptions', 'subscriptions.view', 'subscriptions.manage'])
+  const canOpenInksPage = usePermission(['inks.view', 'inks.manage'])
+  const canOpenSubsPage = usePermission(['subscriptions.view', 'subscriptions.manage'])
   const lowStockInks = useMemo(() => inks.filter(isLowStock), [inks])
-  const showLowStockAlert = lowStockAlertOpen && lowStockInks.length > 0
+  const showLowStockAlert = !showLoginLoader && canSeeInkAlerts && lowStockAlertOpen && lowStockInks.length > 0
 
   const dismissLowStockAlert = () => {
     sessionStorage.setItem('it-low-stock-alert-seen', '1')
@@ -215,44 +242,48 @@ export default function Layout() {
       kind: 'ink' | 'subscription'
     }[] = []
 
-    for (const sub of subscriptions) {
-      const st = getSubscriptionStatus(sub)
-      if (st === 'expired' || st === 'expiring') {
-        const days = daysUntilExpiry(sub.endDate)
-        items.push({
-          id: `sub-${sub.id}`,
-          title: sub.serviceName,
-          subtitle:
-            days < 0
-              ? `${sub.provider} • منتهي منذ ${Math.abs(days)} يوم`
-              : days === 0
-                ? `${sub.provider} • ينتهي اليوم`
-                : `${sub.provider} • متبقي ${days} يوم`,
-          badge: st === 'expired' ? 'منتهي' : 'قارب الانتهاء',
-          tone: st === 'expired' ? 'red' : 'amber',
-          to: `/subscriptions?status=${st}`,
-          kind: 'subscription',
-        })
+    if (canSeeSubAlerts) {
+      for (const sub of subscriptions) {
+        const st = getSubscriptionStatus(sub)
+        if (st === 'expired' || st === 'expiring') {
+          const days = daysUntilExpiry(sub.endDate)
+          items.push({
+            id: `sub-${sub.id}`,
+            title: sub.serviceName,
+            subtitle:
+              days < 0
+                ? `${sub.provider} • منتهي منذ ${Math.abs(days)} يوم`
+                : days === 0
+                  ? `${sub.provider} • ينتهي اليوم`
+                  : `${sub.provider} • متبقي ${days} يوم`,
+            badge: st === 'expired' ? 'منتهي' : 'قارب الانتهاء',
+            tone: st === 'expired' ? 'red' : 'amber',
+            to: canOpenSubsPage ? `/subscriptions?status=${st}` : '/',
+            kind: 'subscription',
+          })
+        }
       }
     }
 
-    for (const ink of inks) {
-      if (isLowStock(ink)) {
-        const colorName = inkColors.find((c) => c.id === ink.color)?.name ?? ink.color
-        items.push({
-          id: `ink-${ink.id}`,
-          title: ink.model,
-          subtitle: `${ink.brand} (${colorName}) • المتوفر ${ink.quantity} من حد ${ink.alertThreshold}`,
-          badge: 'تحت حد الطلب',
-          tone: 'amber',
-          to: '/inks?low=1',
-          kind: 'ink',
-        })
+    if (canSeeInkAlerts) {
+      for (const ink of inks) {
+        if (isLowStock(ink)) {
+          const colorName = inkColors.find((c) => c.id === ink.color)?.name ?? ink.color
+          items.push({
+            id: `ink-${ink.id}`,
+            title: ink.model,
+            subtitle: `${ink.brand} (${colorName}) • المتوفر ${ink.quantity} من حد ${ink.alertThreshold}`,
+            badge: 'تحت حد الطلب',
+            tone: 'amber',
+            to: canOpenInksPage ? '/inks?low=1' : '/',
+            kind: 'ink',
+          })
+        }
       }
     }
 
     return items
-  }, [inks, inkColors, subscriptions])
+  }, [inks, inkColors, subscriptions, canSeeInkAlerts, canSeeSubAlerts, canOpenInksPage, canOpenSubsPage])
 
   const allNav = [...NAV, ...BOTTOM_NAV]
   const current = allNav.find((n) =>
@@ -268,8 +299,40 @@ export default function Layout() {
   }, [location.pathname])
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block">
+    <div className="relative flex min-h-screen">
+      {showLoginLoader ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-white transition-opacity duration-300 ${
+            loaderFading ? 'pointer-events-none opacity-0' : 'opacity-100'
+          }`}
+        >
+          <div className="relative flex size-24 items-center justify-center">
+            <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-slate-100 border-t-signal" />
+            <img
+              src="/images/ims_logo.svg"
+              alt="شعار النظام"
+              className="size-12 object-contain"
+            />
+          </div>
+          <p className="mt-4 text-sm font-bold text-slate-900">جاري تجهيز لوحة التحكم...</p>
+          <div className="mt-3 h-1 w-40 overflow-hidden rounded-full bg-slate-100">
+            <div className="loading-bar-anim h-full w-1/2 rounded-full bg-signal" />
+          </div>
+        </div>
+      ) : (
+        <div
+          aria-hidden="true"
+          className="auth-veil-enter pointer-events-none fixed inset-0 z-40 bg-white"
+        />
+      )}
+      <aside
+        className={cx(
+          'sticky top-0 hidden h-screen w-64 shrink-0 lg:block',
+          showLoginLoader ? 'opacity-0' : 'auth-sidebar-enter',
+        )}
+      >
         <Sidebar />
       </aside>
 
@@ -294,7 +357,12 @@ export default function Layout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
+        <header
+          className={cx(
+            'sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6',
+            showLoginLoader ? 'opacity-0' : 'auth-header-enter',
+          )}
+        >
           <button
             aria-label="فتح القائمة"
             onClick={() => setDrawerOpen(true)}
@@ -443,7 +511,12 @@ export default function Layout() {
             </aside>
           </div>
         )}
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">
+        <main
+          className={cx(
+            'mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6',
+            showLoginLoader ? 'opacity-0' : 'auth-main-enter',
+          )}
+        >
           <div key={location.pathname} className="page-transition">
             <Outlet />
           </div>
@@ -459,15 +532,17 @@ export default function Layout() {
         footer={
           <>
             <Button onClick={dismissLowStockAlert}>إغلاق</Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                dismissLowStockAlert()
-                navigate('/inks?low=1')
-              }}
-            >
-              عرض المخزون الناقص
-            </Button>
+            {canOpenInksPage && (
+              <Button
+                variant="primary"
+                onClick={() => {
+                  dismissLowStockAlert()
+                  navigate('/inks?low=1')
+                }}
+              >
+                عرض المخزون الناقص
+              </Button>
+            )}
           </>
         }
       >

@@ -1,6 +1,7 @@
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { ShieldAlert } from 'lucide-react'
 import Layout from './Layout'
+import SplashIntro from '../shared/components/SplashIntro'
 import LoginPage from '../features/auth/LoginPage'
 import Brands from '../features/dictionary/BrandsPage'
 import Dashboard from '../features/dashboard/DashboardPage'
@@ -63,6 +64,7 @@ function RequirePermission({
 export default function App() {
   return (
     <BrowserRouter>
+      <SplashIntro />
       <Routes>
         <Route
           path="/login"
