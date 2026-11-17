@@ -212,7 +212,7 @@ export default function Dashboard() {
         )}
       </section>
 
-      {canDashboardDevices && (
+      {/* {canDashboardDevices && (
         <section aria-labelledby="devices-by-kind">
           <h2 id="devices-by-kind" className="mb-4 text-lg font-bold">
             الأجهزة حسب النوع
@@ -233,7 +233,7 @@ export default function Dashboard() {
               ))}
           </div>
         </section>
-      )}
+      )} */}
     </div>
   )
 }

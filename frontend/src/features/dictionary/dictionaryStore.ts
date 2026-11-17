@@ -6,6 +6,7 @@ import {
   SEED_PRINTER_TYPES,
   SEED_PROVIDERS,
   SEED_SERVICES,
+  SEED_SUBSCRIPTION_CATEGORIES,
 } from '../../shared/data/seed'
 import type {
   BrandItem,
@@ -14,6 +15,7 @@ import type {
   PrinterTypeItem,
   ServiceItem,
   ServiceProviderItem,
+  SubscriptionCategoryItem,
 } from '../../shared/data/types'
 
 export const deviceTypesStore = createCollection<DeviceTypeItem>(
@@ -42,6 +44,12 @@ export const providersStore = createCollection<ServiceProviderItem>(
   SEED_PROVIDERS,
   '/dictionary/providers',
 )
+export const subscriptionCategoriesStore = createCollection<SubscriptionCategoryItem>(
+  'subscription-categories',
+  'CAT',
+  SEED_SUBSCRIPTION_CATEGORIES,
+  '/dictionary/subscription-categories',
+)
 
 export const useDeviceTypes = () => deviceTypesStore.useStore((s) => s.items)
 export const usePrinterTypes = () => printerTypesStore.useStore((s) => s.items)
@@ -49,3 +57,4 @@ export const useInkColors = () => inkColorsStore.useStore((s) => s.items)
 export const useBrands = () => brandsStore.useStore((s) => s.items)
 export const useServices = () => servicesStore.useStore((s) => s.items)
 export const useProviders = () => providersStore.useStore((s) => s.items)
+export const useSubscriptionCategories = () => subscriptionCategoriesStore.useStore((s) => s.items)

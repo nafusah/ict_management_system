@@ -1,16 +1,34 @@
 import { useMemo, useState } from 'react'
-import { Building2, KeyRound, Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
+import { Building2, KeyRound, Layers, Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
 import { DictionaryTabs } from './components/DictionaryTabs'
-import { Button, ConfirmDelete, Field, IconButton, Modal, PageHeader, Pill, TextInput } from '../../shared/components/ui'
-import { providersStore, servicesStore, useProviders, useSubscriptions, useServices } from '../../shared/data/store'
-import type { ServiceItem, ServiceProviderItem } from '../../shared/data/types'
+import { Button, ConfirmDelete, Field, IconButton, Modal, PageHeader, Pill, SelectInput, TextInput } from '../../shared/components/ui'
+import {
+  providersStore,
+  servicesStore,
+  subscriptionCategoriesStore,
+  useProviders,
+  useServices,
+  useSubscriptionCategories,
+  useSubscriptions,
+} from '../../shared/data/store'
+import type { ServiceItem, ServiceProviderItem, SubscriptionCategoryIcon, SubscriptionCategoryItem } from '../../shared/data/types'
 
-type TargetKind = 'service' | 'provider'
-type CatalogEntry = ServiceItem | ServiceProviderItem
+type TargetKind = 'service' | 'provider' | 'category'
+type CatalogEntry = ServiceItem | ServiceProviderItem | SubscriptionCategoryItem
+
+const CATEGORY_ICON_OPTIONS: { value: SubscriptionCategoryIcon; label: string }[] = [
+  { value: 'wifi', label: 'إنترنت / اتصال لاسلكي' },
+  { value: 'network', label: 'شبكات واتصالات' },
+  { value: 'monitor', label: 'برمجيات وتطبيقات' },
+  { value: 'cloud', label: 'خدمات سحابية' },
+  { value: 'security', label: 'أمن سيبراني وحماية' },
+  { value: 'layers', label: 'تصنيف عام / أخرى' },
+]
 
 export default function ServicesSettings() {
   const services = useServices()
   const providers = useProviders()
+  const categories = useSubscriptionCategories()
   const subscriptions = useSubscriptions()
 
   const [modal, setModal] = useState<{ kind: TargetKind; item: CatalogEntry | null } | null>(null)
@@ -28,16 +46,35 @@ export default function ServicesSettings() {
     return map
   }, [subscriptions])
 
+  const categoryCounts = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const s of subscriptions) map[s.category] = (map[s.category] ?? 0) + 1
+    return map
+  }, [subscriptions])
+
   return (
     <div>
       <PageHeader
-        title="الخدمات والمزودون"
-        description="إدارة قوائم أسماء الخدمات ومزودي الخدمة المستخدمة في تسجيل الاشتراكات."
+        title="الخدمات والتصنيفات والمزودون"
+        description="إدارة قوائم أسماء الخدمات وتصنيفات الاشتراكات ومزودي الخدمة."
       />
 
       <DictionaryTabs />
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <CatalogCard
+          title="تصنيفات الاشتراكات"
+          subtitle="التصنيفات المستخدمة لتجميع الاشتراكات (مثل: إنترنت، برمجيات، خدمات سحابية)"
+          icon={<Layers className="size-5" />}
+          addLabel="إضافة تصنيف"
+          items={categories}
+          counts={categoryCounts}
+          countBy="id"
+          onAdd={() => setModal({ kind: 'category', item: null })}
+          onEdit={(item) => setModal({ kind: 'category', item })}
+          onDelete={(item) => setDeleting({ kind: 'category', item })}
+        />
+
         <CatalogCard
           title="أسماء الخدمات"
           subtitle="البرمجيات والخدمات المتاحة للاختيار عند إضافة اشتراك"
@@ -50,17 +87,19 @@ export default function ServicesSettings() {
           onDelete={(item) => setDeleting({ kind: 'service', item })}
         />
 
-        <CatalogCard
-          title="مزودو الخدمة"
-          subtitle="الشركات والموردون المعتمدون للاشتراكات والتراخيص"
-          icon={<Building2 className="size-5" />}
-          addLabel="إضافة مزود"
-          items={providers}
-          counts={providerCounts}
-          onAdd={() => setModal({ kind: 'provider', item: null })}
-          onEdit={(item) => setModal({ kind: 'provider', item })}
-          onDelete={(item) => setDeleting({ kind: 'provider', item })}
-        />
+        <div className="lg:col-span-2">
+          <CatalogCard
+            title="مزودو الخدمة"
+            subtitle="الشركات والموردون المعتمدون للاشتراكات والتراخيص"
+            icon={<Building2 className="size-5" />}
+            addLabel="إضافة مزود"
+            items={providers}
+            counts={providerCounts}
+            onAdd={() => setModal({ kind: 'provider', item: null })}
+            onEdit={(item) => setModal({ kind: 'provider', item })}
+            onDelete={(item) => setDeleting({ kind: 'provider', item })}
+          />
+        </div>
       </div>
 
       <NameFormModal
@@ -68,11 +107,17 @@ export default function ServicesSettings() {
         kind={modal?.kind ?? 'service'}
         item={modal?.item ?? null}
         onClose={() => setModal(null)}
-        onSave={({ name, email, phone }) => {
+        onSave={({ name, email, phone, icon }) => {
           if (!modal) return
           if (modal.kind === 'service') {
             if (modal.item) servicesStore.update({ id: modal.item.id, name })
             else servicesStore.add({ name })
+          } else if (modal.kind === 'category') {
+            if (modal.item) {
+              subscriptionCategoriesStore.update({ id: modal.item.id, name, icon: icon ?? 'layers' })
+            } else {
+              subscriptionCategoriesStore.add({ name, icon: icon ?? 'layers' })
+            }
           } else {
             if (modal.item) providersStore.update({ id: modal.item.id, name, email, phone })
             else providersStore.add({ name, email, phone })
@@ -87,7 +132,12 @@ export default function ServicesSettings() {
         onCancel={() => setDeleting(null)}
         onConfirm={() => {
           if (deleting) {
-            const store = deleting.kind === 'service' ? servicesStore : providersStore
+            const store =
+              deleting.kind === 'service'
+                ? servicesStore
+                : deleting.kind === 'category'
+                  ? subscriptionCategoriesStore
+                  : providersStore
             store.remove(deleting.item.id)
           }
           setDeleting(null)
@@ -104,6 +154,7 @@ function CatalogCard({
   addLabel,
   items,
   counts,
+  countBy = 'name',
   onAdd,
   onEdit,
   onDelete,
@@ -114,6 +165,7 @@ function CatalogCard({
   addLabel: string
   items: { id: string; name: string; email?: string; phone?: string }[]
   counts: Record<string, number>
+  countBy?: 'id' | 'name'
   onAdd: () => void
   onEdit: (item: CatalogEntry) => void
   onDelete: (item: CatalogEntry) => void
@@ -139,7 +191,7 @@ function CatalogCard({
           <li className="px-5 py-8 text-center text-sm text-slate-500">لا توجد عناصر مسجلة بعد.</li>
         ) : (
           items.map((item) => {
-            const used = counts[item.name] ?? 0
+            const used = counts[countBy === 'id' ? item.id : item.name] ?? 0
             return (
               <li key={item.id} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50/70">
                 <div className="min-w-0">
@@ -195,13 +247,14 @@ function NameFormModal({
 }: {
   open: boolean
   kind: TargetKind
-  item: { id: string; name: string; email?: string; phone?: string } | null
+  item: { id: string; name: string; email?: string; phone?: string; icon?: SubscriptionCategoryIcon } | null
   onClose: () => void
-  onSave: (data: { name: string; email?: string; phone?: string }) => void
+  onSave: (data: { name: string; email?: string; phone?: string; icon?: SubscriptionCategoryIcon }) => void
 }) {
   const [name, setName] = useState(item?.name ?? '')
   const [email, setEmail] = useState(item?.email ?? '')
   const [phone, setPhone] = useState(item?.phone ?? '')
+  const [icon, setIcon] = useState<SubscriptionCategoryIcon>(item?.icon ?? 'layers')
   const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string }>({})
   const [lastKey, setLastKey] = useState('')
 
@@ -212,18 +265,25 @@ function NameFormModal({
       setName(item?.name ?? '')
       setEmail(item?.email ?? '')
       setPhone(item?.phone ?? '')
+      setIcon(item?.icon ?? 'layers')
       setErrors({})
     }
   }
 
   const isService = kind === 'service'
+  const isCategory = kind === 'category'
+  const isProvider = kind === 'provider'
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     const nextErrors: { name?: string; email?: string; phone?: string } = {}
     if (!name.trim()) {
-      nextErrors.name = isService ? 'يرجى إدخال اسم الخدمة' : 'يرجى إدخال اسم مزود الخدمة'
+      nextErrors.name = isCategory
+        ? 'يرجى إدخال اسم التصنيف'
+        : isService
+          ? 'يرجى إدخال اسم الخدمة'
+          : 'يرجى إدخال اسم مزود الخدمة'
     }
-    if (!isService) {
+    if (isProvider) {
       if (!email.trim() || !email.includes('@')) nextErrors.email = 'يرجى إدخال بريد إلكتروني صحيح'
       if (!phone.trim()) nextErrors.phone = 'يرجى إدخال رقم الهاتف'
     }
@@ -233,8 +293,9 @@ function NameFormModal({
     }
     onSave({
       name: name.trim(),
-      email: isService ? undefined : email.trim(),
-      phone: isService ? undefined : phone.trim(),
+      email: isProvider ? email.trim() : undefined,
+      phone: isProvider ? phone.trim() : undefined,
+      icon: isCategory ? icon : undefined,
     })
   }
 
@@ -245,12 +306,16 @@ function NameFormModal({
       size="sm"
       title={
         item
-          ? isService
-            ? 'تعديل اسم الخدمة'
-            : 'تعديل مزود الخدمة'
-          : isService
-            ? 'إضافة خدمة جديدة'
-            : 'إضافة مزود خدمة جديد'
+          ? isCategory
+            ? 'تعديل تصنيف الاشتراك'
+            : isService
+              ? 'تعديل اسم الخدمة'
+              : 'تعديل مزود الخدمة'
+          : isCategory
+            ? 'إضافة تصنيف اشتراك جديد'
+            : isService
+              ? 'إضافة خدمة جديدة'
+              : 'إضافة مزود خدمة جديد'
       }
       footer={
         <>
@@ -262,13 +327,22 @@ function NameFormModal({
       }
     >
       <form id="catalog-name-form" onSubmit={submit} className="space-y-4">
-        <Field label={isService ? 'اسم الخدمة' : 'اسم المزود'} error={errors.name}>
+        <Field
+          label={isCategory ? 'اسم التصنيف' : isService ? 'اسم الخدمة' : 'اسم المزود'}
+          error={errors.name}
+        >
           {(id, desc) => (
             <TextInput
               id={id}
               aria-invalid={Boolean(errors.name)}
               aria-describedby={desc}
-              placeholder={isService ? 'مثال: Microsoft 365 Business' : 'مثال: Microsoft'}
+              placeholder={
+                isCategory
+                  ? 'مثال: إنترنت'
+                  : isService
+                    ? 'مثال: Microsoft 365 Business'
+                    : 'مثال: Microsoft'
+              }
               value={name}
               onChange={(e) => {
                 setName(e.target.value)
@@ -279,7 +353,20 @@ function NameFormModal({
           )}
         </Field>
 
-        {!isService && (
+        {isCategory && (
+          <Field label="الأيقونة">
+            {(id) => (
+              <SelectInput
+                id={id}
+                value={icon}
+                onChange={(e) => setIcon(e.target.value as SubscriptionCategoryIcon)}
+                options={CATEGORY_ICON_OPTIONS}
+              />
+            )}
+          </Field>
+        )}
+
+        {isProvider && (
           <>
             <Field label="البريد الإلكتروني" error={errors.email}>
               {(id, desc) => (

@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\PrinterTypeController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\ServiceProviderController;
 use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\SubscriptionCategoryController;
 use App\Http\Controllers\Api\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -111,5 +112,10 @@ Route::middleware('auth.api')->group(function () {
         Route::post('providers', [ServiceProviderController::class, 'store'])->middleware('permission:dictionary.services');
         Route::put('providers/{provider}', [ServiceProviderController::class, 'update'])->middleware('permission:dictionary.services');
         Route::delete('providers/{provider}', [ServiceProviderController::class, 'destroy'])->middleware('permission:dictionary.services');
+
+        Route::get('subscription-categories', [SubscriptionCategoryController::class, 'index'])->middleware('permission:dictionary.services,subscriptions.view,subscriptions.manage,dashboard.subscriptions');
+        Route::post('subscription-categories', [SubscriptionCategoryController::class, 'store'])->middleware('permission:dictionary.services');
+        Route::put('subscription-categories/{subscription_category}', [SubscriptionCategoryController::class, 'update'])->middleware('permission:dictionary.services');
+        Route::delete('subscription-categories/{subscription_category}', [SubscriptionCategoryController::class, 'destroy'])->middleware('permission:dictionary.services');
     });
 });

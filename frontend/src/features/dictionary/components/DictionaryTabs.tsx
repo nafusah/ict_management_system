@@ -14,7 +14,7 @@ export const DICTIONARY_TABS: {
     { to: '/dictionary/printer-types', label: 'أنواع الطابعات', icon: Printer, permissions: ['dictionary.printerTypes', 'dictionary.inkColors'] },
     { to: '/dictionary/ink-colors', label: 'ألوان الأحبار', icon: Palette, permissions: ['dictionary.inkColors'] },
     { to: '/dictionary/brands', label: 'الماركات', icon: Tag, permissions: ['dictionary.brands'] },
-    { to: '/dictionary/services', label: 'الخدمات والمزودون', icon: Briefcase, permissions: ['dictionary.services'] },
+    { to: '/dictionary/services', label: 'الخدمات والتصنيفات والمزودون', icon: Briefcase, permissions: ['dictionary.services'] },
   ]
 
 export function DictionaryTabs() {

@@ -17,7 +17,7 @@ class SubscriptionController extends CrudController
         return [
             'service_name' => ['required', 'string', 'max:255'],
             'provider' => ['required', 'string', 'max:255'],
-            'category' => ['required', Rule::in(['software', 'cloud', 'security', 'network', 'other'])],
+            'category' => ['required', 'string', 'max:64'],
             'po_number' => ['nullable', 'string', 'max:255'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],

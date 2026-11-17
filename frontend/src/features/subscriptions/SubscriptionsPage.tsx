@@ -20,7 +20,14 @@ import {
   cx,
 } from '../../shared/components/ui'
 import { recordAudit, usePermission } from '../../shared/data/auth'
-import { subscriptionsStore, useDepartments, useProviders, useServices, useSubscriptions } from '../../shared/data/store'
+import {
+  subscriptionsStore,
+  useDepartments,
+  useProviders,
+  useServices,
+  useSubscriptionCategories,
+  useSubscriptions,
+} from '../../shared/data/store'
 import {
   SUBSCRIPTION_CATEGORIES,
   SUBSCRIPTION_STATUSES,
@@ -55,6 +62,13 @@ function addOneYear(dateStr: string) {
 export default function Subscriptions() {
   const canManage = usePermission('subscriptions.manage')
   const subscriptions = useSubscriptions()
+  const categories = useSubscriptionCategories()
+  const categoryLabelMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const k of Object.keys(SUBSCRIPTION_CATEGORIES)) map[k] = SUBSCRIPTION_CATEGORIES[k].label
+    for (const c of categories) map[c.id] = c.name
+    return map
+  }, [categories])
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -93,12 +107,16 @@ export default function Subscriptions() {
         const st = getSubscriptionStatus(s)
         if (statusFilter && st !== statusFilter) return false
         if (!q) return true
-        return [s.serviceName, s.provider, s.poNumber, s.department, SUBSCRIPTION_CATEGORIES[s.category].label].some(
-          (v) => v.toLowerCase().includes(q),
-        )
+        return [
+          s.serviceName,
+          s.provider,
+          s.poNumber,
+          s.department,
+          categoryLabelMap[s.category] ?? s.category,
+        ].some((v) => v.toLowerCase().includes(q))
       })
       .sort((a, b) => a.endDate.localeCompare(b.endDate))
-  }, [subscriptions, query, statusFilter])
+  }, [subscriptions, query, statusFilter, categoryLabelMap])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, pageCount)
@@ -174,7 +192,7 @@ export default function Subscriptions() {
                             <bdi>{sub.serviceName}</bdi>
                           </div>
                           <div className="text-xs text-slate-500">
-                            <bdi>{sub.provider}</bdi> • {SUBSCRIPTION_CATEGORIES[sub.category].label}
+                            <bdi>{sub.provider}</bdi> • {categoryLabelMap[sub.category] ?? sub.category}
                           </div>
                         </div>
                       </div>
@@ -358,7 +376,7 @@ function SubscriptionDetailsModal({
                 <bdi>{subscription.serviceName}</bdi>
               </h3>
               <p className="mt-0.5 text-sm text-slate-600">
-                <bdi>{subscription.provider}</bdi> • {SUBSCRIPTION_CATEGORIES[subscription.category].label}
+                <bdi>{subscription.provider}</bdi> • {SUBSCRIPTION_CATEGORIES[subscription.category]?.label ?? subscription.category}
               </p>
             </div>
             <Pill tone={STATUS_TONE[status]}>{SUBSCRIPTION_STATUSES[status].label}</Pill>
@@ -450,6 +468,7 @@ function SubscriptionFormModal({
 }) {
   const services = useServices()
   const providers = useProviders()
+  const categories = useSubscriptionCategories()
   const isEdit = subscription !== null
   const todayStr = new Date().toISOString().slice(0, 10)
 
@@ -480,7 +499,9 @@ function SubscriptionFormModal({
 
   const [serviceName, setServiceName] = useState(subscription?.serviceName ?? serviceOptions[0] ?? '')
   const [provider, setProvider] = useState(subscription?.provider ?? providerOptions[0] ?? '')
-  const [category, setCategory] = useState<SubscriptionCategory>(subscription?.category ?? 'software')
+  const [category, setCategory] = useState<SubscriptionCategory>(
+    subscription?.category ?? categories[0]?.id ?? 'software',
+  )
   const [poNumber, setPoNumber] = useState(subscription?.poNumber ?? '')
   const [department, setDepartment] = useState(subscription?.department ?? deptNames[0] ?? '')
   const [startDate, setStartDate] = useState(subscription?.startDate ?? todayStr)
@@ -588,10 +609,14 @@ function SubscriptionFormModal({
               id={id}
               value={category}
               onChange={(e) => setCategory(e.target.value as SubscriptionCategory)}
-              options={(Object.keys(SUBSCRIPTION_CATEGORIES) as SubscriptionCategory[]).map((k) => ({
-                value: k,
-                label: SUBSCRIPTION_CATEGORIES[k].label,
-              }))}
+              options={
+                categories.length > 0
+                  ? categories.map((c) => ({ value: c.id, label: c.name }))
+                  : Object.keys(SUBSCRIPTION_CATEGORIES).map((k) => ({
+                      value: k,
+                      label: SUBSCRIPTION_CATEGORIES[k].label,
+                    }))
+              }
             />
           )}
         </Field>

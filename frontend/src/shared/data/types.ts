@@ -184,8 +184,15 @@ export const PERMISSIONS: Record<Permission, { label: string; group: string }> =
   'employees.manage': { label: 'إدارة الموظفين والإدارات', group: 'النظام' },
 }
 
-export type SubscriptionCategory = 'software' | 'cloud' | 'security' | 'network' | 'other'
+export type SubscriptionCategoryIcon = 'monitor' | 'cloud' | 'security' | 'network' | 'wifi' | 'layers'
+export type SubscriptionCategory = string
 export type SubscriptionStatus = 'active' | 'expiring' | 'expired' | 'cancelled'
+
+export interface SubscriptionCategoryItem {
+  id: string
+  name: string
+  icon: SubscriptionCategoryIcon
+}
 
 export interface ServiceItem {
   id: string
@@ -213,7 +220,7 @@ export interface Subscription {
   notes: string
 }
 
-export const SUBSCRIPTION_CATEGORIES: Record<SubscriptionCategory, { label: string }> = {
+export const SUBSCRIPTION_CATEGORIES: Record<string, { label: string }> = {
   software: { label: 'برمجيات وتطبيقات' },
   cloud: { label: 'خدمات سحابية' },
   security: { label: 'أمن سيبراني وحماية' },

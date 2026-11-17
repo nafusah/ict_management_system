@@ -22,12 +22,14 @@ import {
   printerTypesStore,
   providersStore,
   servicesStore,
+  subscriptionCategoriesStore,
   useBrands,
   useDeviceTypes,
   useInkColors,
   usePrinterTypes,
   useProviders,
   useServices,
+  useSubscriptionCategories,
 } from '../../features/dictionary/dictionaryStore'
 import {
   auditLogsStore,
@@ -62,6 +64,7 @@ export {
   providersStore,
   saveSettingsToApi,
   servicesStore,
+  subscriptionCategoriesStore,
   subscriptionsStore,
   useAuditLogs,
   useBrands,
@@ -77,6 +80,7 @@ export {
   useProviders,
   usersStore,
   useServices,
+  useSubscriptionCategories,
   useSubscriptions,
   useUsers,
 }
@@ -163,6 +167,10 @@ export async function hydrateAllFromApi(explicitPerms?: Permission[]) {
 
   if (hasAny('dictionary.services', 'subscriptions.view', 'subscriptions.manage')) {
     jobs.push(servicesStore.hydrate(), providersStore.hydrate())
+  }
+
+  if (hasAny('dictionary.services', 'subscriptions.view', 'subscriptions.manage', 'dashboard.subscriptions')) {
+    jobs.push(subscriptionCategoriesStore.hydrate())
   }
 
   if (hasAny('employees.manage', 'settings.manage', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage', 'inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve', 'subscriptions.view', 'subscriptions.manage')) {

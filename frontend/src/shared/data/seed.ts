@@ -9,6 +9,7 @@ import type {
   ServiceItem,
   ServiceProviderItem,
   Subscription,
+  SubscriptionCategoryItem,
 } from './types'
 
 /** بيانات أولية تظهر عند أول تشغيل فقط، قبل أي تعديل. */
@@ -145,6 +146,14 @@ export const SEED_PROVIDERS: ServiceProviderItem[] = [
   { id: 'PRV-003', name: 'Adobe', email: 'enterprise@adobe.com', phone: '+1-800-833-6687' },
   { id: 'PRV-004', name: 'Cloudflare', email: 'support@cloudflare.com', phone: '+1-888-993-5273' },
   { id: 'PRV-005', name: 'Zoom', email: 'support@zoom.us', phone: '+1-888-799-9666' },
+]
+
+export const SEED_SUBSCRIPTION_CATEGORIES: SubscriptionCategoryItem[] = [
+  { id: 'software', name: 'برمجيات وتطبيقات', icon: 'monitor' },
+  { id: 'cloud', name: 'خدمات سحابية', icon: 'cloud' },
+  { id: 'security', name: 'أمن سيبراني وحماية', icon: 'security' },
+  { id: 'network', name: 'شبكات واتصالات', icon: 'network' },
+  { id: 'other', name: 'أخرى', icon: 'layers' },
 ]
 
 export const SEED_SUBSCRIPTIONS: Subscription[] = [

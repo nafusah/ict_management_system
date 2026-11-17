@@ -12,6 +12,7 @@ use App\Models\InkColor;
 use App\Models\PrinterType;
 use App\Models\Service;
 use App\Models\ServiceProvider;
+use App\Models\SubscriptionCategory;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -78,6 +79,16 @@ class DatabaseSeeder extends Seeder
             ['id' => 'PRV-003', 'name' => 'مركز الأنظمة المتكاملة', 'email' => 'support@integrated-sys.local', 'phone' => '0945678901'],
         ] as $row) {
             ServiceProvider::updateOrCreate(['id' => $row['id']], $row);
+        }
+
+        foreach ([
+            ['id' => 'software', 'name' => 'برمجيات وتطبيقات', 'icon' => 'monitor'],
+            ['id' => 'cloud', 'name' => 'خدمات سحابية', 'icon' => 'cloud'],
+            ['id' => 'security', 'name' => 'أمن سيبراني وحماية', 'icon' => 'security'],
+            ['id' => 'network', 'name' => 'شبكات واتصالات', 'icon' => 'network'],
+            ['id' => 'other', 'name' => 'أخرى', 'icon' => 'layers'],
+        ] as $row) {
+            SubscriptionCategory::updateOrCreate(['id' => $row['id']], $row);
         }
 
         foreach ([

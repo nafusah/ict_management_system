@@ -1,23 +1,29 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ChevronDown, Cloud, Globe, Layers, Monitor, ShieldCheck } from 'lucide-react'
+import { ArrowRight, ChevronDown, Cloud, Globe, Layers, Monitor, ShieldCheck, Wifi } from 'lucide-react'
 import { Button, PageHeader, Pill, SearchInput, cx } from '../../shared/components/ui'
 import { usePermission } from '../../shared/data/auth'
-import { useSubscriptions } from '../../shared/data/store'
+import { useSubscriptionCategories, useSubscriptions } from '../../shared/data/store'
 import {
   SUBSCRIPTION_CATEGORIES,
   SUBSCRIPTION_STATUSES,
   daysUntilExpiry,
   getSubscriptionStatus,
 } from '../../shared/data/types'
-import type { Subscription, SubscriptionCategory, SubscriptionStatus } from '../../shared/data/types'
+import type {
+  Subscription,
+  SubscriptionCategory,
+  SubscriptionCategoryIcon,
+  SubscriptionStatus,
+} from '../../shared/data/types'
 
-const CATEGORY_ICONS: Record<SubscriptionCategory, typeof Monitor> = {
-  software: Monitor,
+const CATEGORY_ICONS: Record<SubscriptionCategoryIcon, typeof Monitor> = {
+  monitor: Monitor,
   cloud: Cloud,
   security: ShieldCheck,
   network: Globe,
-  other: Layers,
+  wifi: Wifi,
+  layers: Layers,
 }
 
 const STATUS_TONE: Record<SubscriptionStatus, 'green' | 'amber' | 'red' | 'slate'> = {
@@ -37,38 +43,59 @@ function formatDays(days: number, cancelled: boolean) {
 
 export default function SubscriptionsSummaryPage() {
   const subscriptions = useSubscriptions()
+  const categories = useSubscriptionCategories()
   const canViewSubs = usePermission(['subscriptions.view', 'subscriptions.manage'])
+  const canManageCategories = usePermission('dictionary.services')
   const [query, setQuery] = useState('')
   const [openCategory, setOpenCategory] = useState<SubscriptionCategory | null>(null)
+
+  const categoryMap = useMemo(() => {
+    const map: Record<string, { name: string; icon: SubscriptionCategoryIcon }> = {}
+    for (const k of Object.keys(SUBSCRIPTION_CATEGORIES)) {
+      map[k] = { name: SUBSCRIPTION_CATEGORIES[k].label, icon: (k === 'software' ? 'monitor' : k === 'other' ? 'layers' : k) as SubscriptionCategoryIcon }
+    }
+    for (const c of categories) {
+      map[c.id] = { name: c.name, icon: c.icon ?? 'layers' }
+    }
+    return map
+  }, [categories])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return subscriptions
     return subscriptions.filter((s) =>
-      [s.serviceName, s.provider, s.department, s.poNumber, SUBSCRIPTION_CATEGORIES[s.category].label].some((v) =>
+      [s.serviceName, s.provider, s.department, s.poNumber, categoryMap[s.category]?.name ?? s.category].some((v) =>
         v.toLowerCase().includes(q),
       ),
     )
-  }, [subscriptions, query])
+  }, [subscriptions, query, categoryMap])
 
   const grouped = useMemo(() => {
-    const map: Record<SubscriptionCategory, Subscription[]> = {
-      software: [],
-      cloud: [],
-      security: [],
-      network: [],
-      other: [],
-    }
+    const map: Record<string, Subscription[]> = {}
+    for (const c of categories) map[c.id] = []
     for (const sub of filtered) {
+      if (!map[sub.category]) map[sub.category] = []
       map[sub.category].push(sub)
     }
-    for (const key of Object.keys(map) as SubscriptionCategory[]) {
+    for (const key of Object.keys(map)) {
       map[key].sort((a, b) => a.endDate.localeCompare(b.endDate))
     }
     return map
-  }, [filtered])
+  }, [filtered, categories])
 
-  const categories = Object.keys(SUBSCRIPTION_CATEGORIES) as SubscriptionCategory[]
+  const categoryList = useMemo(() => {
+    const list = categories.map((c) => ({ id: c.id, name: c.name, icon: c.icon ?? 'layers' }))
+    for (const key of Object.keys(grouped)) {
+      if (!list.some((c) => c.id === key)) {
+        list.push({
+          id: key,
+          name: categoryMap[key]?.name ?? key,
+          icon: categoryMap[key]?.icon ?? 'layers',
+        })
+      }
+    }
+    return list
+  }, [categories, grouped, categoryMap])
 
   return (
     <div>
@@ -83,6 +110,11 @@ export default function SubscriptionsSummaryPage() {
                 لوحة التحكم
               </Button>
             </Link>
+            {canManageCategories && (
+              <Link to="/dictionary/services">
+                <Button variant="secondary">إدارة التصنيفات</Button>
+              </Link>
+            )}
             {canViewSubs && (
               <Link to="/subscriptions">
                 <Button variant="primary">عرض كل الاشتراكات</Button>
@@ -103,10 +135,11 @@ export default function SubscriptionsSummaryPage() {
       )}
 
       <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {categories.map((cat) => {
-          const items = grouped[cat]
+        {categoryList.map((catItem) => {
+          const cat = catItem.id
+          const items = grouped[cat] ?? []
           const isOpen = openCategory === cat
-          const Icon = CATEGORY_ICONS[cat]
+          const Icon = CATEGORY_ICONS[catItem.icon] ?? Layers
           const dueCount = items.filter((s) => {
             const st = getSubscriptionStatus(s)
             return st === 'expiring' || st === 'expired'
@@ -143,7 +176,7 @@ export default function SubscriptionsSummaryPage() {
                     {items.length}
                   </span>
                   <span className="text-sm font-bold text-slate-800">
-                    {SUBSCRIPTION_CATEGORIES[cat].label}
+                    {catItem.name}
                   </span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
