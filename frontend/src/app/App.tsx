@@ -16,6 +16,7 @@ import PrintersInksPage from '../features/inks/PrintersInksPage'
 import ServicesSettings from '../features/dictionary/ServicesSettingsPage'
 import AuditLogs from '../features/settings/AuditLogsPage'
 import Employees from '../features/settings/EmployeesPage'
+import NotificationSettings from '../features/settings/NotificationSettingsPage'
 import Settings from '../features/settings/SettingsPage'
 import Subscriptions from '../features/subscriptions/SubscriptionsPage'
 import SubscriptionsSummaryPage from '../features/subscriptions/SubscriptionsSummaryPage'
@@ -195,6 +196,14 @@ export default function App() {
             element={
               <RequirePermission allow={['settings.manage']}>
                 <Settings />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="settings/notifications"
+            element={
+              <RequirePermission allow={['settings.manage']}>
+                <NotificationSettings />
               </RequirePermission>
             }
           />

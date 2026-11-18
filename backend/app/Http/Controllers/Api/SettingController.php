@@ -18,7 +18,11 @@ class SettingController extends Controller
         'admin_name' => 'مدير النظام',
         'admin_email' => 'it-admin@company.local',
         'default_ink_threshold' => '3',
+        'subscription_alert_days' => ['sun', 'mon', 'tue', 'wed', 'thu'],
+        'subscription_alert_time' => '09:00',
     ];
+
+    private const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
     public function index(): JsonResponse
     {
@@ -33,6 +37,8 @@ class SettingController extends Controller
             'notificationCcEmails' => $this->parseEmailList($stored['notification_cc_emails'] ?? null),
             'subscriptionToEmails' => $this->parseEmailList($stored['subscription_to_emails'] ?? null),
             'subscriptionCcEmails' => $this->parseEmailList($stored['subscription_cc_emails'] ?? null),
+            'subscriptionAlertDays' => $this->parseWeekdays($stored['subscription_alert_days'] ?? null),
+            'subscriptionAlertTime' => $this->normalizeTime($stored['subscription_alert_time'] ?? null),
         ]);
     }
 
@@ -51,12 +57,17 @@ class SettingController extends Controller
             'subscriptionToEmails.*' => ['required', 'email', 'max:255'],
             'subscriptionCcEmails' => ['nullable', 'array'],
             'subscriptionCcEmails.*' => ['required', 'email', 'max:255'],
+            'subscriptionAlertDays' => ['nullable', 'array'],
+            'subscriptionAlertDays.*' => ['required', 'in:sun,mon,tue,wed,thu,fri,sat'],
+            'subscriptionAlertTime' => ['nullable', 'regex:/^([01]\d|2[0-3]):[0-5]\d$/'],
         ]);
 
         $toEmails = $this->normalizeEmails($validated['notificationToEmails'] ?? []);
         $ccEmails = $this->normalizeEmails($validated['notificationCcEmails'] ?? []);
         $subToEmails = $this->normalizeEmails($validated['subscriptionToEmails'] ?? []);
         $subCcEmails = $this->normalizeEmails($validated['subscriptionCcEmails'] ?? []);
+        $alertDays = $this->normalizeWeekdays($validated['subscriptionAlertDays'] ?? self::DEFAULTS['subscription_alert_days']);
+        $alertTime = $this->normalizeTime($validated['subscriptionAlertTime'] ?? null);
 
         $pairs = [
             'org_name' => $validated['orgName'],
@@ -67,6 +78,8 @@ class SettingController extends Controller
             'notification_cc_emails' => json_encode($ccEmails, JSON_UNESCAPED_UNICODE),
             'subscription_to_emails' => json_encode($subToEmails, JSON_UNESCAPED_UNICODE),
             'subscription_cc_emails' => json_encode($subCcEmails, JSON_UNESCAPED_UNICODE),
+            'subscription_alert_days' => json_encode($alertDays, JSON_UNESCAPED_UNICODE),
+            'subscription_alert_time' => $alertTime,
         ];
 
         foreach ($pairs as $key => $value) {
@@ -182,5 +195,51 @@ class SettingController extends Controller
         }
 
         return array_values($clean);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function parseWeekdays(?string $raw): array
+    {
+        if (! $raw) {
+            return self::DEFAULTS['subscription_alert_days'];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            return self::DEFAULTS['subscription_alert_days'];
+        }
+
+        return $this->normalizeWeekdays($decoded);
+    }
+
+    /**
+     * @param  array<int, mixed>  $days
+     * @return list<string>
+     */
+    private function normalizeWeekdays(array $days): array
+    {
+        $valid = [];
+        foreach ($days as $day) {
+            if (! is_string($day)) {
+                continue;
+            }
+            $d = strtolower(trim($day));
+            if (in_array($d, self::WEEKDAYS, true)) {
+                $valid[$d] = $d;
+            }
+        }
+
+        return array_values(array_intersect(self::WEEKDAYS, array_values($valid)));
+    }
+
+    private function normalizeTime(?string $time): string
+    {
+        if (is_string($time) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', trim($time))) {
+            return trim($time);
+        }
+
+        return self::DEFAULTS['subscription_alert_time'];
     }
 }

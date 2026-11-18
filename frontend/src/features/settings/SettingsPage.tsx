@@ -1,96 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Building2, Database, Download, Mail, Plus, RotateCcw, Send, ShieldCheck, X } from 'lucide-react'
+import { Building2, Database, Download, RotateCcw, ShieldCheck } from 'lucide-react'
 import { SettingsTabs } from './components/SettingsTabs'
 import { Button, Field, PageHeader, TextInput, Toast } from '../../shared/components/ui'
-import { downloadDatabaseBackup, fetchSettingsFromApi, saveSettingsToApi, sendTestNotificationEmail } from './settingsStore'
+import { downloadDatabaseBackup, fetchSettingsFromApi, saveSettingsToApi } from './settingsStore'
 import { useDevices, useInks, useSubscriptions, useUsers } from '../../shared/data/store'
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-function EmailListInput({
-  label,
-  hint,
-  placeholder,
-  emails,
-  onChange,
-}: {
-  label: string
-  hint: string
-  placeholder: string
-  emails: string[]
-  onChange: (next: string[]) => void
-}) {
-  const [draft, setDraft] = useState('')
-  const [error, setError] = useState<string | null>(null)
-
-  const addEmail = () => {
-    const normalized = draft.trim().toLowerCase()
-    if (!normalized) return
-    if (!EMAIL_RE.test(normalized)) {
-      setError('يرجى إدخال بريد إلكتروني صحيح.')
-      return
-    }
-    if (!emails.includes(normalized)) {
-      onChange([...emails, normalized])
-    }
-    setDraft('')
-    setError(null)
-  }
-
-  return (
-    <Field label={label} hint={hint} error={error ?? undefined}>
-      {(id, desc) => (
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <TextInput
-              id={id}
-              aria-describedby={desc}
-              type="email"
-              dir="ltr"
-              placeholder={placeholder}
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value)
-                if (error) setError(null)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addEmail()
-                }
-              }}
-            />
-            <Button type="button" variant="secondary" onClick={addEmail}>
-              <Plus className="size-4" />
-              إضافة
-            </Button>
-          </div>
-          {emails.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {emails.map((email) => (
-                <span
-                  key={email}
-                  dir="ltr"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700"
-                >
-                  {email}
-                  <button
-                    type="button"
-                    aria-label={`حذف ${email}`}
-                    onClick={() => onChange(emails.filter((item) => item !== email))}
-                    className="cursor-pointer rounded-full p-0.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </Field>
-  )
-}
 
 export default function Settings() {
   const devices = useDevices()
@@ -106,7 +19,8 @@ export default function Settings() {
   const [notificationCcEmails, setNotificationCcEmails] = useState<string[]>([])
   const [subscriptionToEmails, setSubscriptionToEmails] = useState<string[]>([])
   const [subscriptionCcEmails, setSubscriptionCcEmails] = useState<string[]>([])
-  const [sendingTestChannel, setSendingTestChannel] = useState<'inks' | 'subscriptions' | null>(null)
+  const [subscriptionAlertDays, setSubscriptionAlertDays] = useState<string[]>(['sun', 'mon', 'tue', 'wed', 'thu'])
+  const [subscriptionAlertTime, setSubscriptionAlertTime] = useState('09:00')
   const [toast, setToast] = useState<{ message: string; tone: 'green' | 'red' } | null>(null)
   const [backingUp, setBackingUp] = useState(false)
 
@@ -121,6 +35,8 @@ export default function Settings() {
       setNotificationCcEmails(remote.notificationCcEmails ?? [])
       setSubscriptionToEmails(remote.subscriptionToEmails ?? [])
       setSubscriptionCcEmails(remote.subscriptionCcEmails ?? [])
+      setSubscriptionAlertDays(remote.subscriptionAlertDays ?? ['sun', 'mon', 'tue', 'wed', 'thu'])
+      setSubscriptionAlertTime(remote.subscriptionAlertTime ?? '09:00')
     })
   }, [])
 
@@ -135,25 +51,10 @@ export default function Settings() {
       notificationCcEmails,
       subscriptionToEmails,
       subscriptionCcEmails,
-    }).catch(() => {})
+      subscriptionAlertDays,
+      subscriptionAlertTime,
+    }).catch(() => { })
     setToast({ message: 'تم حفظ الإعدادات بنجاح', tone: 'green' })
-  }
-
-  const handleSendTestEmail = async (channel: 'inks' | 'subscriptions') => {
-    const to = channel === 'subscriptions' ? subscriptionToEmails : notificationToEmails
-    const cc = channel === 'subscriptions' ? subscriptionCcEmails : notificationCcEmails
-    if (to.length === 0) {
-      setToast({ message: 'يرجى إضافة بريد واحد على الأقل في المستلمين (To) أولاً.', tone: 'red' })
-      return
-    }
-    setSendingTestChannel(channel)
-    const res = await sendTestNotificationEmail({ channel, to, cc })
-    setSendingTestChannel(null)
-    if (res.ok) {
-      setToast({ message: res.message, tone: 'green' })
-    } else {
-      setToast({ message: res.error, tone: 'red' })
-    }
   }
 
   const handleBackup = async () => {
@@ -273,76 +174,14 @@ export default function Settings() {
                 )}
               </Field>
             </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+              <Button type="submit" variant="primary">
+                حفظ التغييرات
+              </Button>
+            </div>
+            <Toast message={toast?.message ?? null} tone={toast?.tone ?? 'green'} onClose={() => setToast(null)} />
           </section>
-
-          {[
-            {
-              channel: 'inks' as const,
-              title: 'مستلمو إشعارات الأحبار (To / CC)',
-              subtitle: 'تصلهم إشعارات صرف الأحبار وتوريد المخزون ونقص المخزون',
-              to: notificationToEmails,
-              setTo: setNotificationToEmails,
-              cc: notificationCcEmails,
-              setCc: setNotificationCcEmails,
-            },
-            {
-              channel: 'subscriptions' as const,
-              title: 'مستلمو إشعارات الاشتراكات والتراخيص (To / CC)',
-              subtitle: 'تصلهم إشعارات الاشتراكات الجديدة والتجديدات والتنبيهات بقرب الانتهاء أو الانتهاء',
-              to: subscriptionToEmails,
-              setTo: setSubscriptionToEmails,
-              cc: subscriptionCcEmails,
-              setCc: setSubscriptionCcEmails,
-            },
-          ].map((group) => (
-            <section key={group.channel} className="rounded-xl border border-slate-200 bg-white p-6">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                    <Mail className="size-5" />
-                  </span>
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">{group.title}</h2>
-                    <p className="text-xs text-slate-500">{group.subtitle}</p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={sendingTestChannel === group.channel}
-                  onClick={() => void handleSendTestEmail(group.channel)}
-                >
-                  <Send className="size-4" />
-                  {sendingTestChannel === group.channel ? 'جارٍ الإرسال...' : 'إرسال بريد تجريبي'}
-                </Button>
-              </div>
-
-              <div className="grid gap-4">
-                <EmailListInput
-                  label="المستلمون الأساسيون (To)"
-                  hint="أضف عناوين البريد الإلكتروني التي تصلها الرسالة مباشرة"
-                  placeholder="example@nafusah.com"
-                  emails={group.to}
-                  onChange={group.setTo}
-                />
-
-                <EmailListInput
-                  label="نسخة إلى (CC)"
-                  hint="عناوين البريد الإلكتروني التي تصلها نسخة من الإشعارات"
-                  placeholder="cc@nafusah.com"
-                  emails={group.cc}
-                  onChange={group.setCc}
-                />
-              </div>
-            </section>
-          ))}
-
-          <div className="flex items-center justify-end gap-3">
-            <Button type="submit" variant="primary">
-              حفظ التغييرات
-            </Button>
-          </div>
-          <Toast message={toast?.message ?? null} tone={toast?.tone ?? 'green'} onClose={() => setToast(null)} />
         </form>
 
         <div className="space-y-6">

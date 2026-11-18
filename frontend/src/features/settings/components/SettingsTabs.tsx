@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { BookOpen, ClockCounterClockwise, IdentificationCard, SlidersHorizontal, Users } from '@phosphor-icons/react'
+import { Bell, BookOpen, ClockCounterClockwise, IdentificationCard, SlidersHorizontal, Users } from '@phosphor-icons/react'
 import { cx } from '../../../shared/components/ui'
 import { useCurrentPermissions } from '../../../shared/data/auth'
 import type { Permission } from '../../../shared/data/types'
@@ -12,6 +12,7 @@ const TABS: {
   permissions: Permission[]
 }[] = [
     { to: '/settings', label: 'الإعدادات العامة', icon: SlidersHorizontal, end: true, permissions: ['settings.manage'] },
+    { to: '/settings/notifications', label: 'الإشعارات', icon: Bell, end: false, permissions: ['settings.manage'] },
     { to: '/settings/users', label: 'المستخدمين', icon: Users, end: false, permissions: ['settings.manage'] },
     {
       to: '/settings/employees',

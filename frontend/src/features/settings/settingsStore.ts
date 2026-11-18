@@ -23,6 +23,8 @@ export interface GeneralSettingsData {
   notificationCcEmails?: string[]
   subscriptionToEmails?: string[]
   subscriptionCcEmails?: string[]
+  subscriptionAlertDays?: string[]
+  subscriptionAlertTime?: string
 }
 
 export async function fetchSettingsFromApi(): Promise<GeneralSettingsData | null> {

@@ -43,6 +43,12 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@nafusah.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ICT System}
+      MSGRAPH_TENANT_ID: ${MSGRAPH_TENANT_ID:-}
+      MSGRAPH_CLIENT_ID: ${MSGRAPH_CLIENT_ID:-}
+      MSGRAPH_CLIENT_SECRET: ${MSGRAPH_CLIENT_SECRET:-}
+      MSGRAPH_USER_ID: ${MSGRAPH_USER_ID:-}
+      MSGRAPH_PROXY: ${MSGRAPH_PROXY:-}
+      MSGRAPH_VERIFY_SSL: ${MSGRAPH_VERIFY_SSL:-true}
     volumes:
       - backend_storage:/var/www/html/storage
     depends_on:
@@ -75,6 +81,12 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@nafusah.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ICT System}
+      MSGRAPH_TENANT_ID: ${MSGRAPH_TENANT_ID:-}
+      MSGRAPH_CLIENT_ID: ${MSGRAPH_CLIENT_ID:-}
+      MSGRAPH_CLIENT_SECRET: ${MSGRAPH_CLIENT_SECRET:-}
+      MSGRAPH_USER_ID: ${MSGRAPH_USER_ID:-}
+      MSGRAPH_PROXY: ${MSGRAPH_PROXY:-}
+      MSGRAPH_VERIFY_SSL: ${MSGRAPH_VERIFY_SSL:-true}
     volumes:
       - backend_storage:/var/www/html/storage
     depends_on:
@@ -107,6 +119,12 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@nafusah.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ICT System}
+      MSGRAPH_TENANT_ID: ${MSGRAPH_TENANT_ID:-}
+      MSGRAPH_CLIENT_ID: ${MSGRAPH_CLIENT_ID:-}
+      MSGRAPH_CLIENT_SECRET: ${MSGRAPH_CLIENT_SECRET:-}
+      MSGRAPH_USER_ID: ${MSGRAPH_USER_ID:-}
+      MSGRAPH_PROXY: ${MSGRAPH_PROXY:-}
+      MSGRAPH_VERIFY_SSL: ${MSGRAPH_VERIFY_SSL:-true}
     volumes:
       - backend_storage:/var/www/html/storage
     depends_on:

@@ -22,3 +22,4 @@ Artisan::command('ict:check-alerts', function () {
 
 Schedule::job(new CreateDatabaseBackupJob)->dailyAt('02:00');
 Schedule::job(new CheckSystemAlertsJob)->dailyAt('08:00');
+Schedule::command('subscriptions:notify-expiring --scheduled')->everyMinute();
