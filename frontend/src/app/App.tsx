@@ -6,6 +6,7 @@ import LoginPage from '../features/auth/LoginPage'
 import Brands from '../features/dictionary/BrandsPage'
 import Dashboard from '../features/dashboard/DashboardPage'
 import DeviceTypes from '../features/dictionary/DeviceTypesPage'
+import DeviceDetailsPage from '../features/devices/DeviceDetailsPage'
 import Devices from '../features/devices/DevicesPage'
 import InkColors from '../features/dictionary/InkColorsPage'
 import PrinterTypes from '../features/dictionary/PrinterTypesPage'
@@ -97,6 +98,14 @@ export default function App() {
             element={
               <RequirePermission allow={['devices.view', 'devices.manage']}>
                 <Devices />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="devices/:id"
+            element={
+              <RequirePermission allow={['devices.view', 'devices.manage']}>
+                <DeviceDetailsPage />
               </RequirePermission>
             }
           />

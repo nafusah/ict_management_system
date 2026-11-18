@@ -265,8 +265,8 @@ export const CLASSIFICATIONS: Record<Classification, { label: string; hint: stri
 }
 
 export const DEVICE_LOCATIONS: Record<DeviceLocation, { label: string; hint: string }> = {
-  town: { label: 'تاون', hint: 'المقر الرئيسي في تاون' },
-  field: { label: 'الحقل', hint: 'موقع العمل في الحقل' },
+  town: { label: 'Town', hint: 'المقر الرئيسي (Town)' },
+  field: { label: 'Field', hint: 'موقع العمل في الحقل (Field)' },
 }
 
 export const INK_COLORS: Record<

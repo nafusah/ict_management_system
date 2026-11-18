@@ -305,6 +305,7 @@ export default function Inks() {
       {editing && (
         <InkForm
           ink={editing === 'new' ? null : editing}
+          defaultPrinterTypeId={printerFilter ?? ''}
           onClose={() => setEditing(null)}
           onSuccess={(msg) => setToast(msg)}
         />
@@ -627,10 +628,12 @@ function InkDetailsModal({
 
 function InkForm({
   ink,
+  defaultPrinterTypeId = '',
   onClose,
   onSuccess,
 }: {
   ink: Ink | null
+  defaultPrinterTypeId?: string
   onClose: () => void
   onSuccess: (msg: string) => void
 }) {
@@ -649,12 +652,15 @@ function InkForm({
     [printerTypes],
   )
   const isEdit = ink !== null
+  const defaultPrinter = defaultPrinterTypeId ? printerTypes.find((p) => p.id === defaultPrinterTypeId) : undefined
+  const initialBrand =
+    ink?.brand ?? (defaultPrinter?.brand && brandOptions.includes(defaultPrinter.brand) ? defaultPrinter.brand : brandOptions[0])
   const knownBrand = !ink || brandOptions.includes(ink.brand)
 
-  const [brand, setBrand] = useState(ink ? (knownBrand ? ink.brand : OTHER) : brandOptions[0])
+  const [brand, setBrand] = useState(ink ? (knownBrand ? ink.brand : OTHER) : initialBrand)
   const [customBrand, setCustomBrand] = useState(ink && !knownBrand ? ink.brand : '')
   const [model, setModel] = useState(ink?.model ?? '')
-  const [printerTypeId, setPrinterTypeId] = useState(ink?.printerTypeId ?? '')
+  const [printerTypeId, setPrinterTypeId] = useState(ink?.printerTypeId ?? defaultPrinterTypeId)
   const [color, setColor] = useState<InkColor>(ink?.color ?? inkColors[0]?.id ?? 'black')
   const [quantity, setQuantity] = useState(String(ink?.quantity ?? ''))
   const [threshold, setThreshold] = useState(String(ink?.alertThreshold ?? ''))

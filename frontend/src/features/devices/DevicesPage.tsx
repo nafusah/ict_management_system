@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Monitor, Pencil, Phone, Plus, Printer, Server, Smartphone, Trash2 } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Eye, Monitor, Pencil, Phone, Plus, Printer, Server, Smartphone, Trash2 } from 'lucide-react'
 import {
   Button,
   ConfirmDelete,
@@ -36,6 +36,7 @@ const KIND_ICONS: Record<BuiltinDeviceKind, typeof Monitor> = {
 }
 
 export default function Devices() {
+  const navigate = useNavigate()
   const canManage = usePermission('devices.manage')
   const devices = useDevices()
   const deviceTypes = useDeviceTypes()
@@ -163,7 +164,11 @@ export default function Devices() {
                 const typeItem = kindMap[d.kind]
                 const Icon = KIND_ICONS[typeItem?.icon ?? 'other']
                 return (
-                  <tr key={d.id} className="hover:bg-slate-50/70">
+                  <tr
+                    key={d.id}
+                    onClick={() => navigate(`/devices/${d.id}`)}
+                    className="cursor-pointer transition-colors hover:bg-slate-50/70"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
@@ -203,21 +208,26 @@ export default function Devices() {
                         {CLASSIFICATIONS[d.classification].label}
                       </Pill>
                     </td>
-                    <td className="px-4 py-3">
-                      {canManage && (
-                        <div className="flex justify-end gap-1">
-                          <IconButton label={`تعديل ${d.name}`} onClick={() => setEditing(d)}>
-                            <Pencil className="size-4" />
-                          </IconButton>
-                          <IconButton
-                            label={`حذف ${d.name}`}
-                            className="hover:bg-red-50 hover:text-red-700"
-                            onClick={() => setDeleting(d)}
-                          >
-                            <Trash2 className="size-4" />
-                          </IconButton>
-                        </div>
-                      )}
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        <IconButton label={`تفاصيل ${d.name}`} onClick={() => navigate(`/devices/${d.id}`)}>
+                          <Eye className="size-4" />
+                        </IconButton>
+                        {canManage && (
+                          <>
+                            <IconButton label={`تعديل ${d.name}`} onClick={() => setEditing(d)}>
+                              <Pencil className="size-4" />
+                            </IconButton>
+                            <IconButton
+                              label={`حذف ${d.name}`}
+                              className="hover:bg-red-50 hover:text-red-700"
+                              onClick={() => setDeleting(d)}
+                            >
+                              <Trash2 className="size-4" />
+                            </IconButton>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -279,7 +289,7 @@ function splitOther(value: string, list: string[]) {
   return list.includes(value) ? { choice: value, custom: '' } : { choice: OTHER, custom: value }
 }
 
-function DeviceForm({
+export function DeviceForm({
   open,
   device,
   onClose,
