@@ -212,6 +212,7 @@ class ImportSubscriptionsExcel extends Command
         }
 
         $candidates = [
+            database_path('seeders/data/ict_services.xlsx'),
             base_path('../Table of ICT Services (1).xlsx'),
             base_path('Table of ICT Services (1).xlsx'),
         ];
