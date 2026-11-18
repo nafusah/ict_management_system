@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, ChevronDown, Cloud, Globe, Layers, Monitor, ShieldCheck, Wifi } from 'lucide-react'
 import { Button, PageHeader, Pill, SearchInput, cx } from '../../shared/components/ui'
 import { usePermission } from '../../shared/data/auth'
-import { useSubscriptionCategories, useSubscriptions } from '../../shared/data/store'
+import { useProviders, useSubscriptionCategories, useSubscriptions } from '../../shared/data/store'
 import {
   SUBSCRIPTION_CATEGORIES,
   SUBSCRIPTION_STATUSES,
@@ -44,6 +44,11 @@ function formatDays(days: number, cancelled: boolean) {
 export default function SubscriptionsSummaryPage() {
   const subscriptions = useSubscriptions()
   const categories = useSubscriptionCategories()
+  const providersList = useProviders()
+  const providerMap = useMemo(
+    () => Object.fromEntries(providersList.map((p) => [p.name, p])),
+    [providersList],
+  )
   const canViewSubs = usePermission(['subscriptions.view', 'subscriptions.manage'])
   const canManageCategories = usePermission('dictionary.services')
   const [query, setQuery] = useState('')
@@ -64,7 +69,14 @@ export default function SubscriptionsSummaryPage() {
     const q = query.trim().toLowerCase()
     if (!q) return subscriptions
     return subscriptions.filter((s) =>
-      [s.serviceName, s.provider, s.department, s.poNumber, categoryMap[s.category]?.name ?? s.category].some((v) =>
+      [
+        s.serviceName,
+        s.provider,
+        s.department ?? '',
+        s.serviceLocation ?? '',
+        s.poNumber,
+        categoryMap[s.category]?.name ?? s.category,
+      ].some((v) =>
         v.toLowerCase().includes(q),
       ),
     )
@@ -203,6 +215,7 @@ export default function SubscriptionsSummaryPage() {
                       {items.map((sub) => {
                         const st = getSubscriptionStatus(sub)
                         const days = daysUntilExpiry(sub.endDate)
+                        const pMeta = providerMap[sub.provider]
                         return (
                           <li key={sub.id} className="py-2.5 first:pt-0 last:pb-0">
                             <div className="flex items-start justify-between gap-2">
@@ -214,9 +227,13 @@ export default function SubscriptionsSummaryPage() {
                                   <bdi>{sub.serviceName}</bdi>
                                 </div>
                                 <div className="mt-0.5 truncate text-[11px] text-slate-500">
-                                  {sub.department}
-                                  {sub.poNumber ? ` • ${sub.poNumber}` : ''}
+                                  {[sub.serviceLocation, sub.department, sub.poNumber].filter(Boolean).join(' • ') || '—'}
                                 </div>
+                                {(pMeta?.phone || pMeta?.email) && (
+                                  <div dir="ltr" className="mt-0.5 truncate text-right font-mono text-[10px] text-slate-500">
+                                    {[pMeta.phone, pMeta.email].filter(Boolean).join(' • ')}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex shrink-0 flex-col items-end gap-1">
                                 <Pill tone={STATUS_TONE[st]}>{SUBSCRIPTION_STATUSES[st].label}</Pill>

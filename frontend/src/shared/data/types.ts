@@ -212,8 +212,9 @@ export interface Subscription {
   provider: string
   category: SubscriptionCategory
   poNumber: string
-  department: string
-  startDate: string
+  department?: string
+  serviceLocation?: string
+  startDate?: string
   endDate: string
   alertDaysBefore: number
   cancelled: boolean

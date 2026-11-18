@@ -63,6 +63,11 @@ export default function Subscriptions() {
   const canManage = usePermission('subscriptions.manage')
   const subscriptions = useSubscriptions()
   const categories = useSubscriptionCategories()
+  const providers = useProviders()
+  const providerMap = useMemo(
+    () => Object.fromEntries(providers.map((p) => [p.name, p])),
+    [providers],
+  )
   const categoryLabelMap = useMemo(() => {
     const map: Record<string, string> = {}
     for (const k of Object.keys(SUBSCRIPTION_CATEGORIES)) map[k] = SUBSCRIPTION_CATEGORIES[k].label
@@ -111,12 +116,15 @@ export default function Subscriptions() {
           s.serviceName,
           s.provider,
           s.poNumber,
-          s.department,
+          s.department ?? '',
+          s.serviceLocation ?? '',
+          providerMap[s.provider]?.phone ?? '',
+          providerMap[s.provider]?.email ?? '',
           categoryLabelMap[s.category] ?? s.category,
         ].some((v) => v.toLowerCase().includes(q))
       })
       .sort((a, b) => a.endDate.localeCompare(b.endDate))
-  }, [subscriptions, query, statusFilter, categoryLabelMap])
+  }, [subscriptions, query, statusFilter, categoryLabelMap, providerMap])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, pageCount)
@@ -198,9 +206,12 @@ export default function Subscriptions() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">{sub.department}</div>
-                      <div className="font-mono text-xs text-slate-500">
-                        <bdi>{sub.poNumber || '—'}</bdi>
+                      <div className="font-medium text-slate-800">
+                        {sub.serviceLocation || sub.department || '—'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {sub.serviceLocation && sub.department ? `${sub.department} • ` : ''}
+                        <span className="font-mono"><bdi>{sub.poNumber || '—'}</bdi></span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -384,8 +395,12 @@ function SubscriptionDetailsModal({
 
           <dl className="mt-4 grid gap-3 border-t border-slate-200 pt-4 text-sm sm:grid-cols-2">
             <div>
+              <dt className="text-xs text-slate-500">موقع الخدمة</dt>
+              <dd className="mt-0.5 font-semibold text-slate-900">{subscription.serviceLocation || '—'}</dd>
+            </div>
+            <div>
               <dt className="text-xs text-slate-500">الإدارة المستفيدة</dt>
-              <dd className="mt-0.5 font-semibold text-slate-900">{subscription.department}</dd>
+              <dd className="mt-0.5 font-semibold text-slate-900">{subscription.department || '—'}</dd>
             </div>
             <div>
               <dt className="text-xs text-slate-500">رقم أمر الشراء (PO)</dt>
@@ -394,7 +409,7 @@ function SubscriptionDetailsModal({
             <div>
               <dt className="text-xs text-slate-500">تاريخ البدء</dt>
               <dd dir="ltr" className="mt-0.5 text-right font-mono font-semibold text-slate-900">
-                {subscription.startDate}
+                {subscription.startDate || '—'}
               </dd>
             </div>
             <div>
@@ -503,19 +518,28 @@ function SubscriptionFormModal({
     subscription?.category ?? categories[0]?.id ?? 'software',
   )
   const [poNumber, setPoNumber] = useState(subscription?.poNumber ?? '')
-  const [department, setDepartment] = useState(subscription?.department ?? deptNames[0] ?? '')
-  const [startDate, setStartDate] = useState(subscription?.startDate ?? todayStr)
+  const [department, setDepartment] = useState(subscription?.department ?? '')
+  const [serviceLocation, setServiceLocation] = useState(subscription?.serviceLocation ?? '')
+  const [startDate, setStartDate] = useState(subscription?.startDate ?? '')
   const [endDate, setEndDate] = useState(subscription?.endDate ?? addOneYear(todayStr))
   const [alertDaysBefore, setAlertDaysBefore] = useState(String(subscription?.alertDaysBefore ?? 30))
   const [notes, setNotes] = useState(subscription?.notes ?? '')
   const [submitted, setSubmitted] = useState(false)
+
+  const selectedProviderMeta = useMemo(
+    () => providers.find((p) => p.name === provider),
+    [providers, provider],
+  )
 
   const parsedAlert = Number(alertDaysBefore)
 
   const errors = {
     serviceName: !serviceName.trim() ? 'اختر اسم الخدمة من الإعدادات.' : undefined,
     provider: !provider.trim() ? 'اختر مزود الخدمة من الإعدادات.' : undefined,
-    endDate: !endDate || endDate < startDate ? 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء.' : undefined,
+    endDate:
+      !endDate || (startDate && endDate < startDate)
+        ? 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء.'
+        : undefined,
     alertDaysBefore:
       alertDaysBefore.trim() === '' || Number.isNaN(parsedAlert) || parsedAlert < 0
         ? 'أدخل عدد أيام تنبيه صحيح.'
@@ -533,8 +557,9 @@ function SubscriptionFormModal({
       provider: provider.trim(),
       category,
       poNumber: poNumber.trim(),
-      department,
-      startDate,
+      department: department.trim() || undefined,
+      serviceLocation: serviceLocation.trim() || undefined,
+      startDate: startDate || undefined,
       endDate,
       alertDaysBefore: Math.floor(parsedAlert),
       cancelled: subscription?.cancelled ?? false,
@@ -547,7 +572,11 @@ function SubscriptionFormModal({
       onSuccess('تم حفظ تعديلات الاشتراك بنجاح')
     } else {
       subscriptionsStore.add(data)
-      recordAudit('created', 'subscription', `إضافة اشتراك: ${data.serviceName} (${data.department})`)
+      recordAudit(
+        'created',
+        'subscription',
+        `إضافة اشتراك: ${data.serviceName}${data.serviceLocation ? ` (${data.serviceLocation})` : data.department ? ` (${data.department})` : ''}`,
+      )
       onSuccess('تمت إضافة الاشتراك بنجاح')
     }
     onClose()
@@ -586,7 +615,15 @@ function SubscriptionFormModal({
           )}
         </Field>
 
-        <Field label="مزود الخدمة" error={show(errors.provider)}>
+        <Field
+          label="مزود الخدمة"
+          error={show(errors.provider)}
+          hint={
+            selectedProviderMeta && (selectedProviderMeta.phone || selectedProviderMeta.email)
+              ? [selectedProviderMeta.phone, selectedProviderMeta.email].filter(Boolean).join(' • ')
+              : undefined
+          }
+        >
           {(id, d) => (
             <SelectInput
               id={id}
@@ -613,27 +650,41 @@ function SubscriptionFormModal({
                 categories.length > 0
                   ? categories.map((c) => ({ value: c.id, label: c.name }))
                   : Object.keys(SUBSCRIPTION_CATEGORIES).map((k) => ({
-                      value: k,
-                      label: SUBSCRIPTION_CATEGORIES[k].label,
-                    }))
+                    value: k,
+                    label: SUBSCRIPTION_CATEGORIES[k].label,
+                  }))
               }
             />
           )}
         </Field>
 
-        <Field label="الإدارة المستفيدة">
+        <Field label="موقع الخدمة" hint="مثل: Field أو Tripoli Office">
+          {(id) => (
+            <TextInput
+              id={id}
+              placeholder="Field / Tripoli Office"
+              value={serviceLocation}
+              onChange={(e) => setServiceLocation(e.target.value)}
+            />
+          )}
+        </Field>
+
+        <Field label="الإدارة المستفيدة (اختياري)">
           {(id) => (
             <SearchableSelect
               id={id}
               value={department}
               onChange={setDepartment}
-              options={deptNames.map((d) => ({ value: d, label: d }))}
+              options={[
+                { value: '', label: '— غير محدد —' },
+                ...deptNames.map((d) => ({ value: d, label: d })),
+              ]}
               searchPlaceholder="ابحث عن إدارة..."
             />
           )}
         </Field>
 
-        <Field label="تاريخ البدء">
+        <Field label="تاريخ البدء (اختياري)">
           {(id) => (
             <TextInput
               id={id}

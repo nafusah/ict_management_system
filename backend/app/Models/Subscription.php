@@ -26,6 +26,7 @@ class Subscription extends Model
         'seats',
         'annual_cost',
         'department',
+        'service_location',
         'status',
         'cancelled',
         'notes',
