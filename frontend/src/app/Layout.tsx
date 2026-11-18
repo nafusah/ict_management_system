@@ -19,6 +19,7 @@ import {
   Printer,
   SignOut,
   SquaresFour,
+  Trash,
   Users,
   Warning,
   X,
@@ -387,7 +388,26 @@ export default function Layout() {
     setLowStockAlertOpen(false)
   }
 
-  const notifications = useMemo(() => {
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('it-management:dismissed-notifs')
+      const parsed = raw ? JSON.parse(raw) : []
+      return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
+    } catch {
+      return []
+    }
+  })
+
+  const persistDismissed = (next: string[]) => {
+    setDismissedIds(next)
+    try {
+      localStorage.setItem('it-management:dismissed-notifs', JSON.stringify(next))
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  const rawNotifications = useMemo(() => {
     const items: {
       id: string
       title: string
@@ -458,6 +478,21 @@ export default function Layout() {
     return items
   }, [inks, inkVouchers, inkColors, subscriptions, canSeeInkAlerts, canSeeSubAlerts, canApproveVouchers, canOpenInksPage, canOpenSubsPage])
 
+  const notifications = useMemo(
+    () => rawNotifications.filter((n) => !dismissedIds.includes(n.id)),
+    [rawNotifications, dismissedIds],
+  )
+
+  const dismissNotification = (id: string) => {
+    if (dismissedIds.includes(id)) return
+    persistDismissed([...dismissedIds, id])
+  }
+
+  const clearAllNotifications = () => {
+    const merged = Array.from(new Set([...dismissedIds, ...notifications.map((n) => n.id)]))
+    persistDismissed(merged)
+  }
+
   const allNav = [...NAV, ...BOTTOM_NAV]
   const current = allNav.find((n) =>
     n.matchPrefix
@@ -468,7 +503,7 @@ export default function Layout() {
   )
 
   useEffect(() => {
-    document.title = `${current?.label ?? 'إدارة أصول IT'} | إدارة أصول IT`
+    document.title = current?.label ? `${current.label} | ICT Management System` : 'ICT Management System'
   }, [current])
 
   useEffect(() => {
@@ -610,11 +645,11 @@ export default function Layout() {
               type="button"
               aria-label="الإشعارات"
               onClick={() => setNotifOpen(true)}
-              className="relative inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-900"
+              className="relative inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-900"
             >
-              <Bell className="size-4" />
+              <Bell className="size-5" />
               {notifications.length > 0 && (
-                <span className="absolute -top-1 -left-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                <span className="absolute top-0.5 left-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
                   {notifications.length}
                 </span>
               )}
@@ -639,14 +674,25 @@ export default function Layout() {
                   <h2 className="text-base font-bold text-slate-900">الإشعارات</h2>
                   {notifications.length > 0 && <Pill tone="red">{notifications.length}</Pill>}
                 </div>
-                <button
-                  type="button"
-                  aria-label="إغلاق"
-                  onClick={() => setNotifOpen(false)}
-                  className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                >
-                  <X className="size-5" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {notifications.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearAllNotifications}
+                      className="cursor-pointer rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                    >
+                      حذف الكل
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    aria-label="إغلاق"
+                    onClick={() => setNotifOpen(false)}
+                    className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    <X className="size-5" />
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-3">
@@ -661,11 +707,11 @@ export default function Layout() {
                 ) : (
                   <ul className="space-y-2">
                     {notifications.map((n) => (
-                      <li key={n.id}>
+                      <li key={n.id} className="group relative rounded-xl border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50">
                         <Link
                           to={n.to}
                           onClick={() => setNotifOpen(false)}
-                          className="block rounded-xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                          className="block p-3.5 pe-10"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
@@ -682,6 +728,15 @@ export default function Layout() {
                           </div>
                           <p className="mt-1.5 text-xs text-slate-500">{n.subtitle}</p>
                         </Link>
+                        <button
+                          type="button"
+                          aria-label="حذف الإشعار"
+                          title="حذف الإشعار"
+                          onClick={() => dismissNotification(n.id)}
+                          className="absolute top-3 left-2.5 cursor-pointer rounded-md p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash className="size-4" />
+                        </button>
                       </li>
                     ))}
                   </ul>
