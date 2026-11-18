@@ -90,11 +90,13 @@ export default function Subscriptions() {
   const statusParam = params.get('status')
   const statusFilter =
     statusParam && statusParam in SUBSCRIPTION_STATUSES ? (statusParam as SubscriptionStatus) : null
+  const categoryParam = params.get('category')
+  const categoryFilter = categoryParam ? categoryParam : null
 
-  const setFilter = (value: SubscriptionStatus | null) => {
+  const setFilter = (key: 'status' | 'category', value: string | null) => {
     const next = new URLSearchParams(params)
-    if (value) next.set('status', value)
-    else next.delete('status')
+    if (value) next.set(key, value)
+    else next.delete(key)
     setParams(next, { replace: true })
     setPage(1)
   }
@@ -111,6 +113,7 @@ export default function Subscriptions() {
       .filter((s) => {
         const st = getSubscriptionStatus(s)
         if (statusFilter && st !== statusFilter) return false
+        if (categoryFilter && s.category !== categoryFilter) return false
         if (!q) return true
         return [
           s.serviceName,
@@ -124,7 +127,7 @@ export default function Subscriptions() {
         ].some((v) => v.toLowerCase().includes(q))
       })
       .sort((a, b) => a.endDate.localeCompare(b.endDate))
-  }, [subscriptions, query, statusFilter, categoryLabelMap, providerMap])
+  }, [subscriptions, query, statusFilter, categoryFilter, categoryLabelMap, providerMap])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, pageCount)
@@ -155,15 +158,31 @@ export default function Subscriptions() {
           placeholder="ابحث باسم الخدمة أو المزود أو رقم أمر الشراء"
         />
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="تصفية حسب الحالة">
-          <FilterChip active={!statusFilter} onClick={() => setFilter(null)}>
+          <FilterChip active={!statusFilter} onClick={() => setFilter('status', null)}>
             الكل ({subscriptions.length})
           </FilterChip>
           {(Object.keys(SUBSCRIPTION_STATUSES) as SubscriptionStatus[]).map((st) => (
-            <FilterChip key={st} active={statusFilter === st} onClick={() => setFilter(st)}>
+            <FilterChip key={st} active={statusFilter === st} onClick={() => setFilter('status', st)}>
               {SUBSCRIPTION_STATUSES[st].label} ({statusCounts[st]})
             </FilterChip>
           ))}
         </div>
+        {categories.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="تصفية حسب التصنيف">
+            <FilterChip active={!categoryFilter} onClick={() => setFilter('category', null)}>
+              كل التصنيفات
+            </FilterChip>
+            {categories.map((cat) => (
+              <FilterChip
+                key={cat.id}
+                active={categoryFilter === cat.id}
+                onClick={() => setFilter('category', cat.id)}
+              >
+                <bdi>{cat.name}</bdi>
+              </FilterChip>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -337,6 +356,11 @@ function SubscriptionDetailsModal({
 }) {
   const providers = useProviders()
   const providerMeta = providers.find((p) => p.name === subscription.provider)
+  const categories = useSubscriptionCategories()
+  const categoryName =
+    categories.find((c) => c.id === subscription.category)?.name ??
+    SUBSCRIPTION_CATEGORIES[subscription.category]?.label ??
+    subscription.category
   const [notice, setNotice] = useState<string | null>(null)
   const status = getSubscriptionStatus(subscription)
   const days = daysUntilExpiry(subscription.endDate)
@@ -387,7 +411,7 @@ function SubscriptionDetailsModal({
                 <bdi>{subscription.serviceName}</bdi>
               </h3>
               <p className="mt-0.5 text-sm text-slate-600">
-                <bdi>{subscription.provider}</bdi> • {SUBSCRIPTION_CATEGORIES[subscription.category]?.label ?? subscription.category}
+                <bdi>{subscription.provider}</bdi> • {categoryName}
               </p>
             </div>
             <Pill tone={STATUS_TONE[status]}>{SUBSCRIPTION_STATUSES[status].label}</Pill>

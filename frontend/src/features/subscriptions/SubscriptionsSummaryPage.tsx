@@ -253,10 +253,10 @@ export default function SubscriptionsSummaryPage() {
 
                   {canViewSubs && (
                     <Link
-                      to="/subscriptions"
+                      to={`/subscriptions?category=${encodeURIComponent(cat)}`}
                       className="mt-3 block rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
                     >
-                      إدارة الاشتراكات ←
+                      إدارة اشتراكات هذا التصنيف ←
                     </Link>
                   )}
                 </div>
