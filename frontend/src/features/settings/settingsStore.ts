@@ -1,4 +1,4 @@
-import { getStoredToken, request } from '../../shared/data/api'
+import { getStoredToken, notifyUnauthorized, request } from '../../shared/data/api'
 import { createCollection } from '../../shared/data/createCollection'
 import { SEED_DEPARTMENTS, SEED_EMPLOYEES } from '../../shared/data/employeesSeed'
 import { SEED_USERS } from '../../shared/data/seed'
@@ -19,6 +19,10 @@ export interface GeneralSettingsData {
   adminName: string
   adminEmail: string
   defaultInkThreshold: number
+  notificationToEmails?: string[]
+  notificationCcEmails?: string[]
+  subscriptionToEmails?: string[]
+  subscriptionCcEmails?: string[]
 }
 
 export async function fetchSettingsFromApi(): Promise<GeneralSettingsData | null> {
@@ -33,6 +37,20 @@ export async function fetchSettingsFromApi(): Promise<GeneralSettingsData | null
 export async function saveSettingsToApi(data: GeneralSettingsData): Promise<GeneralSettingsData | null> {
   if (!getStoredToken()) return null
   return await request.put<GeneralSettingsData>('/settings', data)
+}
+
+export async function sendTestNotificationEmail(payload: {
+  channel?: 'inks' | 'subscriptions'
+  to: string[]
+  cc: string[]
+}): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  try {
+    const res = await request.post<{ message?: string }>('/settings/test-email', payload)
+    return { ok: true, message: res.message ?? 'تم إرسال البريد التجريبي بنجاح.' }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'تعذر إرسال البريد التجريبي.'
+    return { ok: false, error: msg }
+  }
 }
 
 export async function downloadDatabaseBackup(): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -50,6 +68,10 @@ export async function downloadDatabaseBackup(): Promise<{ ok: true } | { ok: fal
     })
 
     if (!res.ok) {
+      if (res.status === 401) {
+        notifyUnauthorized()
+        return { ok: false, error: 'انتهت الجلسة، يرجى تسجيل الدخول مجدداً.' }
+      }
       return { ok: false, error: 'حدث خطأ، يرجى المحاولة لاحقاً.' }
     }
 

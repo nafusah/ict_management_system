@@ -68,6 +68,7 @@ Route::middleware('auth.api')->group(function () {
     Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('permission:settings.manage');
     Route::get('settings', [SettingController::class, 'index'])->middleware('permission:settings.manage,inks.view,inks.manage');
     Route::put('settings', [SettingController::class, 'update'])->middleware('permission:settings.manage');
+    Route::post('settings/test-email', [SettingController::class, 'sendTestEmail'])->middleware('permission:settings.manage');
     Route::get('settings/backup', [BackupController::class, 'download'])->middleware('permission:settings.manage');
 
     // Departments & Employees

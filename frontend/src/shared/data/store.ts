@@ -104,8 +104,9 @@ export function syncInkDispenseWithServer(
   date: string,
   scope: Classification = 'shared',
   recipientName?: string | null,
+  recipientEmail?: string | null,
 ) {
-  syncInkDispenseBase(inkId, department, quantity, date, scope, recipientName, () => {
+  return syncInkDispenseBase(inkId, department, quantity, date, scope, recipientName, recipientEmail, () => {
     void auditLogsStore.hydrate()
   })
 }
@@ -116,8 +117,9 @@ export function syncBatchInkDispenseWithServer(
   date: string,
   scope: Classification = 'shared',
   recipientName?: string | null,
+  recipientEmail?: string | null,
 ) {
-  syncBatchInkDispenseBase(department, items, date, scope, recipientName, () => {
+  return syncBatchInkDispenseBase(department, items, date, scope, recipientName, recipientEmail, () => {
     void auditLogsStore.hydrate()
   })
 }

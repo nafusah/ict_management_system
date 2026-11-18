@@ -1,5 +1,21 @@
 const AUTH_KEY = 'it-management:session'
 
+export function clearStoredSession(): void {
+  try {
+    localStorage.removeItem(AUTH_KEY)
+    sessionStorage.removeItem(AUTH_KEY)
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function notifyUnauthorized(): void {
+  clearStoredSession()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('it-auth:unauthorized'))
+  }
+}
+
 export function getStoredToken(): string | null {
   try {
     const raw = localStorage.getItem(AUTH_KEY) ?? sessionStorage.getItem(AUTH_KEY)
@@ -39,6 +55,9 @@ export async function apiRequest<T>(
   })
 
   if (!res.ok) {
+    if (res.status === 401 && path !== '/auth/login') {
+      notifyUnauthorized()
+    }
     let msg = 'حدث خطأ، يرجى المحاولة لاحقاً.'
     if (res.status < 500) {
       try {

@@ -26,7 +26,7 @@ import type { Permission } from '../shared/data/types'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const session = useAuth()
-  if (!session) return <Navigate to="/login" replace />
+  if (!session || !session.token) return <Navigate to="/login" replace />
   return <>{children}</>
 }
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError, request } from '../../shared/data/api'
+import { ApiError, clearStoredSession, request } from '../../shared/data/api'
 import { auditLogsStore, hydrateAllFromApi, usersStore } from '../../shared/data/store'
 import type { AppUser, AuditAction, Permission } from '../../shared/data/types'
 
@@ -17,7 +17,13 @@ export interface AuthSession {
 function readSession(): AuthSession | null {
   try {
     const raw = localStorage.getItem(AUTH_KEY) ?? sessionStorage.getItem(AUTH_KEY)
-    if (raw) return JSON.parse(raw) as AuthSession
+    if (raw) {
+      const parsed = JSON.parse(raw) as AuthSession
+      if (parsed && typeof parsed.token === 'string' && parsed.token.trim().length > 0) {
+        return parsed
+      }
+      clearStoredSession()
+    }
   } catch {
     // التخزين غير متاح
   }
@@ -292,6 +298,12 @@ function migrateLocalVoucherPermissions() {
 
 migrateLocalVoucherPermissions()
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('it-auth:unauthorized', () => {
+    useAuthStore.setState({ session: null, loading: false, hydrating: false, justLoggedIn: false })
+  })
+}
+
 if (useAuthStore.getState().session?.token) {
   void request
     .get<AppUser>('/auth/me')
@@ -299,5 +311,8 @@ if (useAuthStore.getState().session?.token) {
       useAuthStore.getState().syncSessionProfile(me)
       return hydrateAllFromApi(me.permissions)
     })
-    .catch(() => hydrateAllFromApi())
+    .catch((err) => {
+      if (err instanceof ApiError && err.status === 401) return
+      return hydrateAllFromApi()
+    })
 }

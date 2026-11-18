@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\AuditLog;
 use App\Models\Ink;
 use App\Models\InkDispense;
+use App\Services\InkDispenseNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,53 @@ class InkController extends CrudController
         ];
     }
 
+    public function store(Request $request): JsonResponse
+    {
+        $response = parent::store($request);
+        if ($response->getStatusCode() === 201) {
+            $data = $response->getData(true);
+            $inkId = is_array($data) ? ($data['id'] ?? null) : null;
+            $ink = $inkId ? Ink::query()->find($inkId) : null;
+            if ($ink && (int) $ink->quantity > 0) {
+                app(InkDispenseNotificationService::class)->notifyRestock(
+                    ink: $ink,
+                    addedQty: (int) $ink->quantity,
+                    beforeQty: 0,
+                    afterQty: (int) $ink->quantity,
+                    performedBy: $this->currentUser($request),
+                    operationLabel: 'إضافة صنف حبر جديد',
+                );
+            }
+        }
+
+        return $response;
+    }
+
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $beforeQty = (int) (Ink::query()->whereKey($id)->value('quantity') ?? 0);
+        $response = parent::update($request, $id);
+        $ink = Ink::query()->find($id);
+
+        if ($ink) {
+            $afterQty = (int) $ink->quantity;
+            if ($afterQty > $beforeQty) {
+                app(InkDispenseNotificationService::class)->notifyRestock(
+                    ink: $ink,
+                    addedQty: $afterQty - $beforeQty,
+                    beforeQty: $beforeQty,
+                    afterQty: $afterQty,
+                    performedBy: $this->currentUser($request),
+                    operationLabel: 'توريد / إضافة مخزون حبر',
+                );
+            } elseif ($afterQty < $beforeQty && $afterQty <= (int) $ink->alert_threshold) {
+                app(InkDispenseNotificationService::class)->notifyLowStock([$ink]);
+            }
+        }
+
+        return $response;
+    }
+
     public function dispenses(): JsonResponse
     {
         $items = InkDispense::query()
@@ -45,6 +93,7 @@ class InkController extends CrudController
             'department' => ['required', 'string', 'max:255'],
             'scope' => ['nullable', 'in:personal,shared'],
             'recipientName' => ['nullable', 'string', 'max:255'],
+            'recipientEmail' => ['nullable', 'email', 'max:255'],
             'quantity' => ['required', 'integer', 'min:1'],
             'date' => ['nullable', 'date'],
         ]);
@@ -96,13 +145,30 @@ class InkController extends CrudController
                 $request,
             );
 
+            $freshInk = $ink->fresh();
+
             return [
-                'ink' => $this->toCamel($ink->fresh()->toArray()),
-                'dispense' => $this->toCamel($dispense->toArray()),
+                'response' => [
+                    'ink' => $this->toCamel($freshInk->toArray()),
+                    'dispense' => $this->toCamel($dispense->toArray()),
+                ],
+                'notifyEntry' => ['ink' => $freshInk, 'quantity' => (int) $validated['quantity']],
+                'date' => $dispense->date,
             ];
         });
 
-        return response()->json($result);
+        app(InkDispenseNotificationService::class)->notify(
+            dispensedEntries: [$result['notifyEntry']],
+            department: $validated['department'],
+            scope: $scope,
+            recipientName: $scope === 'personal' ? $recipientName : null,
+            date: (string) $result['date'],
+            performedBy: $this->currentUser($request),
+            operationLabel: 'صرف حبر مباشر',
+            recipientEmail: $validated['recipientEmail'] ?? null,
+        );
+
+        return response()->json($result['response']);
     }
 
     public function dispenseBatch(Request $request): JsonResponse
@@ -111,6 +177,7 @@ class InkController extends CrudController
             'department' => ['required', 'string', 'max:255'],
             'scope' => ['nullable', 'in:personal,shared'],
             'recipientName' => ['nullable', 'string', 'max:255'],
+            'recipientEmail' => ['nullable', 'email', 'max:255'],
             'date' => ['nullable', 'date'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.inkId' => ['required', 'string'],
@@ -135,6 +202,7 @@ class InkController extends CrudController
             $updatedInks = [];
             $createdDispenses = [];
             $summaryParts = [];
+            $notifyEntries = [];
 
             foreach ($merged as $inkId => $qty) {
                 /** @var Ink $ink */
@@ -153,9 +221,11 @@ class InkController extends CrudController
                     'date' => $date,
                 ]);
 
-                $updatedInks[] = $this->toCamel($ink->fresh()->toArray());
+                $freshInk = $ink->fresh();
+                $updatedInks[] = $this->toCamel($freshInk->toArray());
                 $createdDispenses[] = $this->toCamel($dispense->toArray());
                 $summaryParts[] = "{$qty} × {$ink->model}";
+                $notifyEntries[] = ['ink' => $freshInk, 'quantity' => (int) $qty];
             }
 
             $targetDesc = $scope === 'personal'
@@ -179,11 +249,25 @@ class InkController extends CrudController
             );
 
             return [
-                'inks' => $updatedInks,
-                'dispenses' => $createdDispenses,
+                'response' => [
+                    'inks' => $updatedInks,
+                    'dispenses' => $createdDispenses,
+                ],
+                'notifyEntries' => $notifyEntries,
             ];
         });
 
-        return response()->json($result);
+        app(InkDispenseNotificationService::class)->notify(
+            dispensedEntries: $result['notifyEntries'],
+            department: $validated['department'],
+            scope: $scope,
+            recipientName: $scope === 'personal' ? $recipientName : null,
+            date: (string) $date,
+            performedBy: $this->currentUser($request),
+            operationLabel: 'صرف أحبار مجمع',
+            recipientEmail: $validated['recipientEmail'] ?? null,
+        );
+
+        return response()->json($result['response']);
     }
 }

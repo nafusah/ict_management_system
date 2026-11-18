@@ -11,7 +11,11 @@ export interface DispenseRecipientValue {
   customDepartment: string
   employee: string
   customEmployee: string
+  sendEmployeeEmail?: boolean
+  recipientEmail?: string
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function createInitialRecipientState(
   departments: DepartmentItem[],
@@ -27,6 +31,8 @@ export function createInitialRecipientState(
     customDepartment: '',
     employee: deptEmps[0]?.name ?? OTHER,
     customEmployee: '',
+    sendEmployeeEmail: false,
+    recipientEmail: '',
   }
 }
 
@@ -34,20 +40,35 @@ export function resolveDispenseRecipient(val: DispenseRecipientValue): {
   department: string
   scope: Classification
   recipientName: string | null
+  recipientEmail: string | null
   error?: string
 } {
   const department = val.department === OTHER ? val.customDepartment.trim() : val.department.trim()
   if (!department) {
-    return { department: '', scope: val.scope, recipientName: null, error: 'يرجى تحديد الإدارة المستلمة.' }
+    return { department: '', scope: val.scope, recipientName: null, recipientEmail: null, error: 'يرجى تحديد الإدارة المستلمة.' }
   }
+  const emailTrimmed = (val.recipientEmail ?? '').trim().toLowerCase()
+  if (val.sendEmployeeEmail) {
+    if (!emailTrimmed || !EMAIL_RE.test(emailTrimmed)) {
+      return {
+        department,
+        scope: val.scope,
+        recipientName: null,
+        recipientEmail: null,
+        error: 'يرجى إدخال بريد إلكتروني صحيح للموظف.',
+      }
+    }
+  }
+  const recipientEmail = val.sendEmployeeEmail ? emailTrimmed : null
+
   if (val.scope === 'shared') {
-    return { department, scope: 'shared', recipientName: null }
+    return { department, scope: 'shared', recipientName: null, recipientEmail }
   }
   const recipientName = val.employee === OTHER ? val.customEmployee.trim() : val.employee.trim()
   if (!recipientName) {
-    return { department, scope: 'personal', recipientName: null, error: 'يرجى تحديد اسم الموظف المستلم.' }
+    return { department, scope: 'personal', recipientName: null, recipientEmail, error: 'يرجى تحديد اسم الموظف المستلم.' }
   }
-  return { department, scope: 'personal', recipientName }
+  return { department, scope: 'personal', recipientName, recipientEmail }
 }
 
 export function DispenseRecipientFields({
@@ -55,11 +76,13 @@ export function DispenseRecipientFields({
   onChange,
   departmentLabel = 'الإدارة المستلمة',
   radioName = 'dispense-scope',
+  allowEmployeeEmail = false,
 }: {
   value: DispenseRecipientValue
   onChange: (next: DispenseRecipientValue) => void
   departmentLabel?: string
   radioName?: string
+  allowEmployeeEmail?: boolean
 }) {
   const departments = useDepartments()
   const employees = useEmployees()
@@ -200,6 +223,46 @@ export function DispenseRecipientFields({
                 />
               )}
             </Field>
+          )}
+        </div>
+      )}
+
+      {allowEmployeeEmail && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-800">
+            <input
+              type="checkbox"
+              checked={Boolean(value.sendEmployeeEmail)}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  sendEmployeeEmail: e.target.checked,
+                  recipientEmail: e.target.checked ? value.recipientEmail ?? '' : '',
+                })
+              }
+              className="accent-slate-900"
+            />
+            إرسال إشعار بريدي لموظف محدد (اختياري)
+          </label>
+          {value.sendEmployeeEmail && (
+            <div className="mt-2.5">
+              <Field
+                label="البريد الإلكتروني للموظف"
+                hint="ستصله رسالة خفيفة تفيد بصرف الحبر وجاري تركيبه للطابعة"
+              >
+                {(id, desc) => (
+                  <TextInput
+                    id={id}
+                    aria-describedby={desc}
+                    type="email"
+                    dir="ltr"
+                    value={value.recipientEmail ?? ''}
+                    onChange={(e) => onChange({ ...value, recipientEmail: e.target.value })}
+                    placeholder="employee@nafusah.com"
+                  />
+                )}
+              </Field>
+            </div>
           )}
         </div>
       )}

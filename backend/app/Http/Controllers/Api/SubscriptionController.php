@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Subscription;
+use App\Services\SubscriptionNotificationService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class SubscriptionController extends CrudController
@@ -30,5 +33,53 @@ class SubscriptionController extends CrudController
             'cancelled' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
         ];
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $response = parent::store($request);
+        if ($response->getStatusCode() === 201) {
+            $data = $response->getData(true);
+            $subId = is_array($data) ? ($data['id'] ?? null) : null;
+            $sub = $subId ? Subscription::query()->find($subId) : null;
+            if ($sub) {
+                app(SubscriptionNotificationService::class)->notifyChange(
+                    $sub,
+                    'إضافة اشتراك جديد',
+                    $this->currentUser($request),
+                );
+            }
+        }
+
+        return $response;
+    }
+
+    public function update(Request $request, string $id): JsonResponse
+    {
+        /** @var Subscription|null $before */
+        $before = Subscription::query()->find($id);
+        $beforeEnd = $before?->end_date?->toDateString();
+        $beforeCancelled = (bool) ($before?->cancelled ?? false);
+        $beforeStatus = $before?->status;
+
+        $response = parent::update($request, $id);
+        /** @var Subscription|null $after */
+        $after = Subscription::query()->find($id);
+
+        if ($after) {
+            $endChanged = $after->end_date?->toDateString() !== $beforeEnd;
+            $cancelChanged = (bool) $after->cancelled !== $beforeCancelled;
+            $statusChanged = $after->status !== $beforeStatus;
+
+            if ($endChanged || $cancelChanged || $statusChanged) {
+                app(SubscriptionNotificationService::class)->notifyChange(
+                    $after,
+                    $endChanged ? 'تحديث / تجديد اشتراك' : 'تحديث حالة اشتراك',
+                    $this->currentUser($request),
+                );
+            }
+        }
+
+        return $response;
     }
 }

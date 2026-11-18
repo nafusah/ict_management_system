@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\Ink;
 use App\Models\InkDispense;
 use App\Models\InkVoucher;
+use App\Services\InkDispenseNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -134,14 +135,19 @@ class InkVoucherController extends Controller
             $date = now()->toDateString();
             $updatedInks = [];
             $summaryParts = [];
+            $notifyEntries = [];
 
+            $mergedItems = [];
             foreach ($voucher->items ?? [] as $row) {
                 $inkId = (string) ($row['inkId'] ?? '');
                 $qty = (int) ($row['quantity'] ?? 0);
                 if (! $inkId || $qty <= 0) {
                     continue;
                 }
+                $mergedItems[$inkId] = ($mergedItems[$inkId] ?? 0) + $qty;
+            }
 
+            foreach ($mergedItems as $inkId => $qty) {
                 /** @var Ink $ink */
                 $ink = Ink::query()->lockForUpdate()->findOrFail($inkId);
                 if ($qty > $ink->quantity) {
@@ -158,8 +164,10 @@ class InkVoucherController extends Controller
                     'date' => $date,
                 ]);
 
-                $updatedInks[] = $this->toCamel($ink->fresh()->toArray());
+                $freshInk = $ink->fresh();
+                $updatedInks[] = $this->toCamel($freshInk->toArray());
                 $summaryParts[] = "{$qty} × {$ink->model}";
+                $notifyEntries[] = ['ink' => $freshInk, 'quantity' => (int) $qty];
             }
 
             $before = $voucher->toArray();
@@ -187,12 +195,33 @@ class InkVoucherController extends Controller
             );
 
             return [
-                'voucher' => $this->toCamel($after),
-                'inks' => $updatedInks,
+                'response' => [
+                    'voucher' => $this->toCamel($after),
+                    'inks' => $updatedInks,
+                ],
+                'notifyEntries' => $notifyEntries,
+                'voucher' => $voucher->fresh(),
+                'date' => $date,
             ];
         });
 
-        return response()->json($result);
+        /** @var InkVoucher $dispensedVoucher */
+        $dispensedVoucher = $result['voucher'];
+
+        app(InkDispenseNotificationService::class)->notify(
+            dispensedEntries: $result['notifyEntries'],
+            department: (string) $dispensedVoucher->department,
+            scope: (string) ($dispensedVoucher->scope ?? 'shared'),
+            recipientName: $dispensedVoucher->recipient_name,
+            date: (string) $result['date'],
+            performedBy: $user,
+            operationLabel: 'اعتماد وصرف إذن حبر',
+            voucherId: (string) $dispensedVoucher->id,
+            requesterName: $dispensedVoucher->requester_name,
+            notes: $dispensedVoucher->notes,
+        );
+
+        return response()->json($result['response']);
     }
 
     public function reject(Request $request, string $id): JsonResponse

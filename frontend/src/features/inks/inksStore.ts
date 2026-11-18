@@ -54,54 +54,63 @@ export async function deleteInkVoucherOnServer(voucherId: string): Promise<void>
   inkVouchersStore.setAll(inkVouchersStore.getAll().filter((v) => v.id !== voucherId))
 }
 
-export function syncInkDispenseWithServer(
+export async function syncInkDispenseWithServer(
   inkId: string,
   department: string,
   quantity: number,
   date: string,
   scope: Classification = 'shared',
   recipientName?: string | null,
+  recipientEmail?: string | null,
   onDone?: () => void,
-) {
+): Promise<void> {
   if (!getStoredToken()) return
-  void request
-    .post<{ ink: Ink; dispense: InkDispense }>(`/inks/${encodeURIComponent(inkId)}/dispense`, {
-      department,
-      scope,
-      recipientName: scope === 'personal' ? recipientName ?? null : null,
-      quantity,
-      date,
-    })
-    .then(({ ink }) => {
-      inksStore.setAll(inksStore.getAll().map((i) => (i.id === ink.id ? ink : i)))
-      void inkDispensesStore.hydrate()
-      onDone?.()
-    })
-    .catch(() => {})
+  try {
+    const { ink } = await request.post<{ ink: Ink; dispense: InkDispense }>(
+      `/inks/${encodeURIComponent(inkId)}/dispense`,
+      {
+        department,
+        scope,
+        recipientName: scope === 'personal' ? recipientName ?? null : null,
+        recipientEmail: recipientEmail || null,
+        quantity,
+        date,
+      },
+    )
+    inksStore.setAll(inksStore.getAll().map((i) => (i.id === ink.id ? ink : i)))
+    void inkDispensesStore.hydrate()
+    onDone?.()
+  } catch (err) {
+    void inksStore.hydrate()
+    throw err
+  }
 }
 
-export function syncBatchInkDispenseWithServer(
+export async function syncBatchInkDispenseWithServer(
   department: string,
   items: { inkId: string; quantity: number }[],
   date: string,
   scope: Classification = 'shared',
   recipientName?: string | null,
+  recipientEmail?: string | null,
   onDone?: () => void,
-) {
+): Promise<void> {
   if (!getStoredToken()) return
-  void request
-    .post<{ inks: Ink[]; dispenses: InkDispense[] }>('/inks/dispense-batch', {
+  try {
+    const { inks } = await request.post<{ inks: Ink[]; dispenses: InkDispense[] }>('/inks/dispense-batch', {
       department,
       scope,
       recipientName: scope === 'personal' ? recipientName ?? null : null,
+      recipientEmail: recipientEmail || null,
       items,
       date,
     })
-    .then(({ inks }) => {
-      const updatedMap = new Map(inks.map((i) => [i.id, i]))
-      inksStore.setAll(inksStore.getAll().map((i) => updatedMap.get(i.id) ?? i))
-      void inkDispensesStore.hydrate()
-      onDone?.()
-    })
-    .catch(() => {})
+    const updatedMap = new Map(inks.map((i) => [i.id, i]))
+    inksStore.setAll(inksStore.getAll().map((i) => updatedMap.get(i.id) ?? i))
+    void inkDispensesStore.hydrate()
+    onDone?.()
+  } catch (err) {
+    void inksStore.hydrate()
+    throw err
+  }
 }

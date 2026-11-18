@@ -35,4 +35,18 @@ return [
         ],
     ],
 
+    'msgraph' => [
+        'tenant_id' => env('MSGRAPH_TENANT_ID'),
+        'client_id' => env('MSGRAPH_CLIENT_ID'),
+        'client_secret' => env('MSGRAPH_CLIENT_SECRET'),
+        'user_id' => env('MSGRAPH_USER_ID'),
+        'proxy' => env('MSGRAPH_PROXY') ?: (env('HTTPS_PROXY') ?: env('HTTP_PROXY')),
+        'verify_ssl' => filter_var(env('MSGRAPH_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
+        'ca_bundle' => env('MSGRAPH_CA_BUNDLE'),
+        'timeout' => (int) env('MSGRAPH_TIMEOUT', 15),
+        'connect_timeout' => (int) env('MSGRAPH_CONNECT_TIMEOUT', 5),
+        'retries' => (int) env('MSGRAPH_RETRIES', 2),
+        'retry_delay' => (int) env('MSGRAPH_RETRY_DELAY', 500),
+    ],
+
 ];

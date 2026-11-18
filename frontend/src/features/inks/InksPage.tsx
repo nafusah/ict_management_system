@@ -365,6 +365,8 @@ function InkDetailsModal({
   const [mode, setMode] = useState<'dispense' | 'restock'>('dispense')
   const [amountStr, setAmountStr] = useState('1')
   const [recipient, setRecipient] = useState(() => createInitialRecipientState(departments, employees, 'shared'))
+  const [submitting, setSubmitting] = useState(false)
+  const [txError, setTxError] = useState<string | null>(null)
 
   const low = isLowStock(ink)
   const meta = inkColors.find((c) => c.id === ink.color) ?? FALLBACK_COLOR
@@ -373,6 +375,7 @@ function InkDetailsModal({
   const exceedsStock = mode === 'dispense' && validNumber && parsed > ink.quantity
   const resolvedRecipient = resolveDispenseRecipient(recipient)
   const canSubmit =
+    !submitting &&
     validNumber &&
     !exceedsStock &&
     !(mode === 'dispense' && (ink.quantity === 0 || Boolean(resolvedRecipient.error)))
@@ -384,24 +387,32 @@ function InkDetailsModal({
     setAmountStr(String(next))
   }
 
-  const handleTransaction = (e: FormEvent) => {
+  const handleTransaction = async (e: FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
+    setTxError(null)
 
     const nextQuantity =
       mode === 'dispense' ? Math.max(0, ink.quantity - parsed) : ink.quantity + parsed
 
     if (mode === 'dispense') {
       const today = new Date().toISOString().slice(0, 10)
-      const { department: chosenDept, scope, recipientName } = resolvedRecipient
+      const { department: chosenDept, scope, recipientName, recipientEmail } = resolvedRecipient
       const targetDesc =
         scope === 'personal' && recipientName
           ? `«${chosenDept}» (الموظف: ${recipientName})`
           : `«${chosenDept}» (جماعي)`
 
       if (getStoredToken()) {
-        inksStore.setAll(inksStore.getAll().map((i) => (i.id === ink.id ? { ...i, quantity: nextQuantity } : i)))
-        syncInkDispenseWithServer(ink.id, chosenDept, parsed, today, scope, recipientName)
+        setSubmitting(true)
+        try {
+          await syncInkDispenseWithServer(ink.id, chosenDept, parsed, today, scope, recipientName, recipientEmail)
+        } catch (err) {
+          setTxError(err instanceof Error ? err.message : 'تعذر تنفيذ عملية الصرف.')
+          return
+        } finally {
+          setSubmitting(false)
+        }
       } else {
         inksStore.update({ ...ink, quantity: nextQuantity })
         inkDispensesStore.add({
@@ -541,6 +552,7 @@ function InkDetailsModal({
                 value={recipient}
                 onChange={setRecipient}
                 radioName="ink-detail-scope"
+                allowEmployeeEmail
               />
             </div>
           )}
@@ -596,6 +608,9 @@ function InkDetailsModal({
             <p className="mt-2.5 text-xs font-medium text-red-700">
               الكمية المطلوبة ({parsed}) أكبر من المتوفر في المخزون ({ink.quantity}).
             </p>
+          )}
+          {txError && (
+            <p className="mt-2.5 text-xs font-medium text-red-700">{txError}</p>
           )}
         </form>
         )}
@@ -849,6 +864,7 @@ function BatchDispenseModal({
     { key: 1, inkId: availableInks[0]?.id ?? '', quantity: '1' },
   ])
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const addRow = () => {
     const used = new Set(rows.map((r) => r.inkId))
@@ -868,8 +884,9 @@ function BatchDispenseModal({
     setError('')
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     setError('')
 
     const resolved = resolveDispenseRecipient(recipient)
@@ -877,7 +894,7 @@ function BatchDispenseModal({
       setError(resolved.error)
       return
     }
-    const { department: chosenDept, scope, recipientName } = resolved
+    const { department: chosenDept, scope, recipientName, recipientEmail } = resolved
 
     if (rows.length === 0) {
       setError('أضف صنف حبر واحداً على الأقل.')
@@ -917,16 +934,23 @@ function BatchDispenseModal({
         ? `«${chosenDept}» (الموظف: ${recipientName})`
         : `«${chosenDept}» (جماعي)`
 
-    inksStore.setAll(
-      inksStore.getAll().map((ink) => {
-        const deducted = totals.get(ink.id)
-        return deducted ? { ...ink, quantity: Math.max(0, ink.quantity - deducted) } : ink
-      }),
-    )
-
     if (getStoredToken()) {
-      syncBatchInkDispenseWithServer(chosenDept, items, today, scope, recipientName)
+      setSubmitting(true)
+      try {
+        await syncBatchInkDispenseWithServer(chosenDept, items, today, scope, recipientName, recipientEmail)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'تعذر تنفيذ عملية الصرف.')
+        return
+      } finally {
+        setSubmitting(false)
+      }
     } else {
+      inksStore.setAll(
+        inksStore.getAll().map((ink) => {
+          const deducted = totals.get(ink.id)
+          return deducted ? { ...ink, quantity: Math.max(0, ink.quantity - deducted) } : ink
+        }),
+      )
       const parts: string[] = []
       for (const { inkId, quantity } of items) {
         const ink = inks.find((i) => i.id === inkId)
@@ -952,9 +976,9 @@ function BatchDispenseModal({
             variant="primary"
             type="submit"
             form="batch-dispense-form"
-            disabled={availableInks.length === 0}
+            disabled={submitting || availableInks.length === 0}
           >
-            تأكيد الصرف
+            {submitting ? 'جارٍ الصرف...' : 'تأكيد الصرف'}
           </Button>
         </>
       }
@@ -970,6 +994,7 @@ function BatchDispenseModal({
           value={recipient}
           onChange={setRecipient}
           radioName="ink-batch-scope"
+          allowEmployeeEmail
         />
 
         <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
