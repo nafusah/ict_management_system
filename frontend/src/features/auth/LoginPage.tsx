@@ -18,7 +18,6 @@ function triggerWebHaptic(pattern: number | number[] = 10) {
 export default function LoginPage() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
-  const quickDemoLogin = useAuthStore((s) => s.quickDemoLogin)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -52,13 +51,6 @@ export default function LoginPage() {
     }
 
     triggerWebHaptic(12)
-    navigate('/', { replace: true })
-  }
-
-  function handleQuickDemo() {
-    triggerWebHaptic(10)
-    setError('')
-    quickDemoLogin(remember)
     navigate('/', { replace: true })
   }
 
@@ -206,16 +198,6 @@ export default function LoginPage() {
                 <span>{submitting ? 'جاري الدخول...' : 'دخول'}</span>
               </button>
             </form>
-
-            <div className="mt-5 border-t border-slate-900/10 pt-4 text-center">
-              <button
-                type="button"
-                onClick={handleQuickDemo}
-                className="cursor-pointer text-xs font-medium text-slate-600 underline-offset-4 transition-colors hover:text-slate-900 hover:underline focus-visible:outline-2 focus-visible:outline-slate-900"
-              >
-                دخول سريع بحساب مدير النظام
-              </button>
-            </div>
           </div>
         </main>
 
