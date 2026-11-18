@@ -17,10 +17,12 @@ import {
 import { subscriptionsStore, useSubscriptions } from '../../features/subscriptions/subscriptionsStore'
 import {
   brandsStore,
+  deletePrinterType,
   deviceTypesStore,
   inkColorsStore,
   printerTypesStore,
   providersStore,
+  savePrinterType,
   servicesStore,
   subscriptionCategoriesStore,
   useBrands,
@@ -50,6 +52,7 @@ import type { Classification, Permission } from './types'
 export {
   auditLogsStore,
   brandsStore,
+  deletePrinterType,
   departmentsStore,
   devicesStore,
   deviceTypesStore,
@@ -62,6 +65,7 @@ export {
   inksStore,
   printerTypesStore,
   providersStore,
+  savePrinterType,
   saveSettingsToApi,
   servicesStore,
   subscriptionCategoriesStore,
@@ -161,7 +165,7 @@ export async function hydrateAllFromApi(explicitPerms?: Permission[]) {
     jobs.push(subscriptionsStore.hydrate())
   }
 
-  if (hasAny('dictionary.brands', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage')) {
+  if (hasAny('dictionary.brands', 'dictionary.printerTypes', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage')) {
     jobs.push(brandsStore.hydrate())
   }
 

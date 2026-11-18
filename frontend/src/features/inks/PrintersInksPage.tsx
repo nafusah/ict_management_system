@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ChevronDown } from 'lucide-react'
+import { ArrowRight, ChevronDown, Plus } from 'lucide-react'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
-import { Button, PageHeader, Pill, SearchInput, cx } from '../../shared/components/ui'
+import { Button, PageHeader, Pill, SearchInput, Toast, cx } from '../../shared/components/ui'
 import { usePermission } from '../../shared/data/auth'
-import { useInkColors, useInks, usePrinterTypes } from '../../shared/data/store'
+import { savePrinterType, useInkColors, useInks, usePrinterTypes } from '../../shared/data/store'
 import { isLowStock } from '../../shared/data/types'
+import { PrinterTypeFormModal } from '../dictionary/components/PrinterTypeFormModal'
 
 const countItems = (n: number) =>
   n === 1 ? 'صنف واحد' : n === 2 ? 'صنفان' : n <= 10 ? `${n} أصناف` : `${n} صنفًا`
@@ -17,8 +18,11 @@ export default function PrintersInksPage() {
   const colorMap = useMemo(() => Object.fromEntries(inkColors.map((c) => [c.id, c])), [inkColors])
   const canViewInks = usePermission(['inks.view', 'inks.manage'])
   const canManagePrinterTypes = usePermission(['dictionary.printerTypes', 'dictionary.inkColors'])
+  const canAddPrinter = usePermission(['inks.manage', 'dictionary.printerTypes', 'dictionary.inkColors'])
   const [query, setQuery] = useState('')
   const [openPrinterId, setOpenPrinterId] = useState<string | null>(null)
+  const [addingPrinter, setAddingPrinter] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -46,9 +50,15 @@ export default function PrintersInksPage() {
                 <Button variant="secondary">إدارة أنواع الطابعات</Button>
               </Link>
             )}
+            {canAddPrinter && (
+              <Button variant="primary" onClick={() => setAddingPrinter(true)}>
+                <Plus className="size-4" />
+                إضافة طابعة
+              </Button>
+            )}
             {canViewInks && (
               <Link to="/inks">
-                <Button variant="primary">عرض كل الأحبار</Button>
+                <Button variant={canAddPrinter ? 'secondary' : 'primary'}>عرض كل الأحبار</Button>
               </Link>
             )}
           </div>
@@ -197,6 +207,19 @@ export default function PrintersInksPage() {
           })}
         </div>
       )}
+
+      <PrinterTypeFormModal
+        item={null}
+        open={addingPrinter}
+        onClose={() => setAddingPrinter(false)}
+        onSave={async (data) => {
+          await savePrinterType(data)
+          setAddingPrinter(false)
+          setToast('تمت إضافة الطابعة بنجاح وأصبحت متاحة لجميع المستخدمين')
+        }}
+      />
+
+      <Toast message={toast} tone="green" onClose={() => setToast(null)} />
     </div>
   )
 }

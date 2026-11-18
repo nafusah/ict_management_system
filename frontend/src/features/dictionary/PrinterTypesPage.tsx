@@ -1,18 +1,16 @@
-import { useMemo, useRef, useState } from 'react'
-import { ImagePlus, Pencil, Plus, Printer, Trash2, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Pencil, Plus, Printer, Trash2 } from 'lucide-react'
 import { DictionaryTabs } from './components/DictionaryTabs'
+import { PrinterTypeFormModal } from './components/PrinterTypeFormModal'
 import {
   Button,
   ConfirmDelete,
-  Field,
   IconButton,
-  Modal,
   PageHeader,
   Pill,
-  SelectInput,
-  TextInput,
+  Toast,
 } from '../../shared/components/ui'
-import { printerTypesStore, useBrands, useInks, usePrinterTypes } from '../../shared/data/store'
+import { deletePrinterType, savePrinterType, useInks, usePrinterTypes } from '../../shared/data/store'
 import type { PrinterTypeItem } from '../../shared/data/types'
 
 export default function PrinterTypes() {
@@ -20,6 +18,7 @@ export default function PrinterTypes() {
   const inks = useInks()
   const [editing, setEditing] = useState<PrinterTypeItem | 'new' | null>(null)
   const [deleting, setDeleting] = useState<PrinterTypeItem | null>(null)
+  const [toast, setToast] = useState<{ message: string; tone?: 'green' | 'red' } | null>(null)
 
   const stats = useMemo(() => {
     const map: Record<string, { items: number; cartridges: number }> = {}
@@ -126,13 +125,14 @@ export default function PrinterTypes() {
         item={editing === 'new' ? null : editing}
         open={editing !== null}
         onClose={() => setEditing(null)}
-        onSave={(data) => {
-          if (editing && editing !== 'new') {
-            printerTypesStore.update({ ...data, id: editing.id })
-          } else {
-            printerTypesStore.add(data)
-          }
+        onSave={async (data) => {
+          const isEdit = editing && editing !== 'new'
+          await savePrinterType(data, isEdit ? editing.id : undefined)
           setEditing(null)
+          setToast({
+            message: isEdit ? 'تم حفظ تعديلات الطابعة بنجاح' : 'تمت إضافة الطابعة بنجاح',
+            tone: 'green',
+          })
         }}
       />
 
@@ -140,210 +140,23 @@ export default function PrinterTypes() {
         open={deleting !== null}
         itemName={deleting?.name ?? ''}
         onCancel={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting) printerTypesStore.remove(deleting.id)
+        onConfirm={async () => {
+          if (deleting) {
+            try {
+              await deletePrinterType(deleting.id)
+              setToast({ message: `تم حذف "${deleting.name}" بنجاح`, tone: 'green' })
+            } catch (err) {
+              setToast({
+                message: err instanceof Error ? err.message : 'تعذر حذف الطابعة.',
+                tone: 'red',
+              })
+            }
+          }
           setDeleting(null)
         }}
       />
+
+      <Toast message={toast?.message ?? null} tone={toast?.tone} onClose={() => setToast(null)} />
     </div>
-  )
-}
-
-function resizeImageToDataUrl(file: File, maxSize = 360): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(new Error('تعذر قراءة الملف'))
-    reader.onload = () => {
-      const img = new Image()
-      img.onerror = () => reject(new Error('الملف ليس صورة صالحة'))
-      img.onload = () => {
-        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
-        const w = Math.max(1, Math.round(img.width * scale))
-        const h = Math.max(1, Math.round(img.height * scale))
-        const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          reject(new Error('تعذر معالجة الصورة'))
-          return
-        }
-        ctx.drawImage(img, 0, 0, w, h)
-        const webp = canvas.toDataURL('image/webp', 0.85)
-        resolve(webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/png'))
-      }
-      img.src = String(reader.result)
-    }
-    reader.readAsDataURL(file)
-  })
-}
-
-function PrinterTypeFormModal({
-  item,
-  open,
-  onClose,
-  onSave,
-}: {
-  item: PrinterTypeItem | null
-  open: boolean
-  onClose: () => void
-  onSave: (data: Omit<PrinterTypeItem, 'id'>) => void
-}) {
-  const brands = useBrands()
-  const brandOptions = useMemo(() => {
-    const names = Array.from(new Set(brands.map((b) => b.name)))
-    return [{ value: '', label: '— بدون تحديد —' }, ...names.map((n) => ({ value: n, label: n }))]
-  }, [brands])
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState(item?.name ?? '')
-  const [brand, setBrand] = useState(item?.brand ?? '')
-  const [image, setImage] = useState<string | null>(item?.image ?? null)
-  const [imageError, setImageError] = useState<string | undefined>()
-  const [error, setError] = useState<string | undefined>()
-  const [lastKey, setLastKey] = useState('')
-
-  const currentKey = open ? (item?.id ?? 'new') : 'closed'
-  if (currentKey !== lastKey) {
-    setLastKey(currentKey)
-    if (open) {
-      setName(item?.name ?? '')
-      setBrand(item?.brand ?? '')
-      setImage(item?.image ?? null)
-      setImageError(undefined)
-      setError(undefined)
-    }
-  }
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setImageError('يرجى اختيار ملف صورة صالح (PNG, JPG, WEBP).')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setImageError('حجم الصورة يجب ألا يتجاوز 5 ميجابايت.')
-      return
-    }
-    try {
-      const dataUrl = await resizeImageToDataUrl(file)
-      setImage(dataUrl)
-      setImageError(undefined)
-    } catch {
-      setImageError('تعذر تحميل الصورة، جرب صورة أخرى.')
-    }
-  }
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name.trim()) {
-      setError('يرجى إدخال اسم أو موديل الطابعة')
-      return
-    }
-    onSave({
-      name: name.trim(),
-      brand: brand.trim() || undefined,
-      image: image || null,
-    })
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="sm"
-      title={item ? `تعديل نوع الطابعة: ${item.name}` : 'إضافة نوع طابعة جديد'}
-      footer={
-        <>
-          <Button onClick={onClose}>إلغاء</Button>
-          <Button type="submit" form="printer-type-form" variant="primary">
-            {item ? 'حفظ التعديلات' : 'إضافة الطابعة'}
-          </Button>
-        </>
-      }
-    >
-      <form id="printer-type-form" onSubmit={submit} className="space-y-4">
-        <div>
-          <span className="mb-1.5 block text-sm font-medium text-slate-700">صورة الطابعة (اختياري)</span>
-          <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-            <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
-              {image ? (
-                <img src={image} alt="معاينة الطابعة" className="size-full object-contain p-1" />
-              ) : (
-                <Printer className="size-8 text-slate-400" />
-              )}
-            </div>
-            <div className="flex flex-1 flex-wrap items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => void handleFileChange(e)}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-9 px-3 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ImagePlus className="size-4" />
-                {image ? 'تغيير الصورة' : 'رفع صورة'}
-              </Button>
-              {image && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 px-2.5 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
-                  onClick={() => {
-                    setImage(null)
-                    setImageError(undefined)
-                  }}
-                >
-                  <X className="size-4" />
-                  إزالة
-                </Button>
-              )}
-              <p className="w-full text-[11px] text-slate-500">
-                تظهر الصورة في لوحة التحكم وقائمة الطابعات.
-              </p>
-            </div>
-          </div>
-          {imageError && <p className="mt-1.5 text-xs font-medium text-red-600">{imageError}</p>}
-        </div>
-
-        <Field label="اسم / موديل الطابعة" error={error}>
-          {(id, desc) => (
-            <TextInput
-              id={id}
-              dir="ltr"
-              className="text-right"
-              aria-invalid={Boolean(error)}
-              aria-describedby={desc}
-              placeholder="مثال: HP LaserJet Pro M404dn"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                setError(undefined)
-              }}
-              autoFocus
-            />
-          )}
-        </Field>
-
-        <Field label="الماركة (اختياري)">
-          {(id) => (
-            <SelectInput
-              id={id}
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              options={brandOptions}
-            />
-          )}
-        </Field>
-      </form>
-    </Modal>
   )
 }

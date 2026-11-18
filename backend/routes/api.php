@@ -99,9 +99,9 @@ Route::middleware('auth.api')->group(function () {
         Route::delete('ink-colors/{ink_color}', [InkColorController::class, 'destroy'])->middleware('permission:dictionary.inkColors');
 
         Route::get('printer-types', [PrinterTypeController::class, 'index'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors,inks.view,inks.manage,dashboard.inks,inks.vouchers.view,inks.vouchers.create,inks.vouchers.approve');
-        Route::post('printer-types', [PrinterTypeController::class, 'store'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors');
-        Route::put('printer-types/{printer_type}', [PrinterTypeController::class, 'update'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors');
-        Route::delete('printer-types/{printer_type}', [PrinterTypeController::class, 'destroy'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors');
+        Route::post('printer-types', [PrinterTypeController::class, 'store'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors,inks.manage');
+        Route::put('printer-types/{printer_type}', [PrinterTypeController::class, 'update'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors,inks.manage');
+        Route::delete('printer-types/{printer_type}', [PrinterTypeController::class, 'destroy'])->middleware('permission:dictionary.printerTypes,dictionary.inkColors,inks.manage');
 
         Route::get('services', [ServiceController::class, 'index'])->middleware('permission:dictionary.services,subscriptions.view,subscriptions.manage');
         Route::post('services', [ServiceController::class, 'store'])->middleware('permission:dictionary.services');
