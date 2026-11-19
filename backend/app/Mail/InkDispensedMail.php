@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -58,5 +59,20 @@ class InkDispensedMail extends Mailable
             view: 'emails.ink-dispensed',
             with: ['details' => $this->details],
         );
+    }
+
+    /**
+     * @return list<Attachment>
+     */
+    public function attachments(): array
+    {
+        $ref = $this->details['voucherId'] ?: str_replace('-', '', $this->details['date']);
+
+        return [
+            Attachment::fromData(
+                fn () => view('emails.ink-receipt-attachment', ['details' => $this->details])->render(),
+                "ink-receipt-{$ref}.html",
+            )->withMime('text/html'),
+        ];
     }
 }

@@ -105,13 +105,7 @@ class InkDispenseNotificationService
             try {
                 Mail::mailer('msgraph')
                     ->to($normalizedEmployeeEmail)
-                    ->send(new EmployeeInkDispensedMail([
-                        'orgName' => $orgName,
-                        'recipientName' => $recipientName,
-                        'department' => $department,
-                        'date' => $date,
-                        'items' => $items,
-                    ]));
+                    ->send(new EmployeeInkDispensedMail($details));
             } catch (Throwable $e) {
                 Log::warning('Failed to send employee ink dispense notification email.', [
                     'error' => $e->getMessage(),

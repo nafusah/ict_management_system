@@ -4,7 +4,7 @@ import { ArrowRight, ChevronDown, Plus } from 'lucide-react'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import { Button, PageHeader, Pill, SearchInput, Toast, cx } from '../../shared/components/ui'
 import { usePermission } from '../../shared/data/auth'
-import { savePrinterType, useInkColors, useInks, usePrinterTypes } from '../../shared/data/store'
+import { inksStore, savePrinterType, useInkColors, useInks, usePrinterTypes } from '../../shared/data/store'
 import { isLowStock } from '../../shared/data/types'
 import { PrinterTypeFormModal } from '../dictionary/components/PrinterTypeFormModal'
 
@@ -212,10 +212,19 @@ export default function PrintersInksPage() {
         item={null}
         open={addingPrinter}
         onClose={() => setAddingPrinter(false)}
-        onSave={async (data) => {
-          await savePrinterType(data)
+        onSave={async (data, initialInks) => {
+          const saved = await savePrinterType(data)
+          if (initialInks?.length) {
+            for (const draft of initialInks) {
+              inksStore.add({ ...draft, printerTypeId: saved.id })
+            }
+          }
           setAddingPrinter(false)
-          setToast('تمت إضافة الطابعة بنجاح وأصبحت متاحة لجميع المستخدمين')
+          setToast(
+            initialInks?.length
+              ? `تمت إضافة الطابعة و${initialInks.length} أصناف حبر مرتبطة بها بنجاح`
+              : 'تمت إضافة الطابعة بنجاح وأصبحت متاحة لجميع المستخدمين',
+          )
         }}
       />
 

@@ -28,6 +28,8 @@ import {
   createInitialRecipientState,
   resolveDispenseRecipient,
 } from './components/DispenseRecipientFields'
+import { InkReceiptModal, type InkReceiptData } from './components/InkReceiptModal'
+import { InkColorSetSelector, type ColorInkRow } from './components/InkColorSetSelector'
 import { OTHER } from '../../shared/data/options'
 import { isLowStock } from '../../shared/data/types'
 import type { Ink, InkColor, InkColorItem } from '../../shared/data/types'
@@ -367,6 +369,7 @@ function InkDetailsModal({
   const [recipient, setRecipient] = useState(() => createInitialRecipientState(departments, employees, 'shared'))
   const [submitting, setSubmitting] = useState(false)
   const [txError, setTxError] = useState<string | null>(null)
+  const [receiptData, setReceiptData] = useState<InkReceiptData | null>(null)
 
   const low = isLowStock(ink)
   const meta = inkColors.find((c) => c.id === ink.color) ?? FALLBACK_COLOR
@@ -630,6 +633,30 @@ function InkDetailsModal({
                   <div className="flex items-center gap-2">
                     <Pill tone="slate">{d.quantity} خرطوش</Pill>
                     <span className="font-mono text-slate-500">{d.date}</span>
+                    <IconButton
+                      label="طباعة وصل استلام"
+                      className="size-7 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      onClick={() =>
+                        setReceiptData({
+                          receiptNo: d.id,
+                          date: d.date,
+                          department: d.department,
+                          scope: d.scope ?? 'shared',
+                          recipientName: d.recipientName,
+                          items: [
+                            {
+                              model: ink.model,
+                              brand: ink.brand,
+                              colorName: meta.name,
+                              printerTypeName: linkedPrinter?.name ?? null,
+                              quantity: d.quantity,
+                            },
+                          ],
+                        })
+                      }
+                    >
+                      <Printer className="size-3.5" />
+                    </IconButton>
                   </div>
                 </li>
               ))}
@@ -637,6 +664,7 @@ function InkDetailsModal({
           </div>
         )}
       </div>
+      <InkReceiptModal receipt={receiptData} onClose={() => setReceiptData(null)} />
     </Modal>
   )
 }
@@ -679,14 +707,41 @@ function InkForm({
   const [color, setColor] = useState<InkColor>(ink?.color ?? inkColors[0]?.id ?? 'black')
   const [quantity, setQuantity] = useState(String(ink?.quantity ?? ''))
   const [threshold, setThreshold] = useState(String(ink?.alertThreshold ?? ''))
+  const [colorRows, setColorRows] = useState<ColorInkRow[]>(() => [
+    { color: ink?.color ?? inkColors[0]?.id ?? 'black', model: ink?.model ?? '', quantity: String(ink?.quantity ?? '') },
+  ])
   const [submitted, setSubmitted] = useState(false)
 
+  const handleModelChange = (nextModel: string) => {
+    setColorRows((prev) =>
+      prev.map((r) => (!r.model.trim() || r.model === model ? { ...r, model: nextModel } : r)),
+    )
+    setModel(nextModel)
+  }
+
+  const handleQuantityChange = (nextQty: string) => {
+    setColorRows((prev) =>
+      prev.map((r) => (!r.quantity.trim() || r.quantity === quantity ? { ...r, quantity: nextQty } : r)),
+    )
+    setQuantity(nextQty)
+  }
+
+  const isMultiColor = !isEdit && colorRows.length > 1
   const isCount = (v: string) => /^\d+$/.test(v.trim())
+  const multiRowError = isMultiColor
+    ? colorRows.some((r) => !(r.model.trim() || model.trim()))
+      ? 'يرجى كتابة موديل الحبر لكل لون محدد.'
+      : colorRows.some((r) => !isCount(r.quantity || quantity))
+        ? 'يرجى كتابة كمية صحيحة لكل لون محدد.'
+        : undefined
+    : undefined
+
   const errors = {
     brand: brand === OTHER && !customBrand.trim() ? 'اكتب اسم الماركة.' : undefined,
-    model: !model.trim() ? 'اكتب موديل الحبر.' : undefined,
-    quantity: !isCount(quantity) ? 'اكتب الكمية رقمًا صحيحًا، مثل 12.' : undefined,
+    model: !isMultiColor && !model.trim() ? 'اكتب موديل الحبر.' : undefined,
+    quantity: !isMultiColor && !isCount(quantity) ? 'اكتب الكمية رقمًا صحيحًا، مثل 12.' : undefined,
     threshold: !isCount(threshold) ? 'اكتب حد الطلب رقمًا صحيحًا، مثل 5.' : undefined,
+    colors: multiRowError,
   }
   const show = (e?: string) => (submitted ? e : undefined)
 
@@ -694,19 +749,47 @@ function InkForm({
     e.preventDefault()
     setSubmitted(true)
     if (Object.values(errors).some(Boolean)) return
-    const data = {
-      brand: brand === OTHER ? customBrand.trim() : brand,
-      model: model.trim(),
-      color,
-      printerTypeId: printerTypeId || null,
-      quantity: Number(quantity),
-      alertThreshold: Number(threshold),
-    }
+    const resolvedBrand = brand === OTHER ? customBrand.trim() : brand
+    const resolvedPrinterId = printerTypeId || null
+    const resolvedThreshold = Number(threshold)
+
     if (isEdit) {
+      const data = {
+        brand: resolvedBrand,
+        model: model.trim(),
+        color,
+        printerTypeId: resolvedPrinterId,
+        quantity: Number(quantity),
+        alertThreshold: resolvedThreshold,
+      }
       inksStore.update({ ...data, id: ink.id })
       recordAudit('updated', 'ink', `تعديل صنف حبر: ${data.model}`, ink.id)
       onSuccess('تم حفظ تعديلات الحبر بنجاح')
+    } else if (colorRows.length > 1) {
+      for (const row of colorRows) {
+        const rowModel = (row.model.trim() || model.trim())
+        const rowQty = Number((row.quantity || quantity).trim())
+        inksStore.add({
+          brand: resolvedBrand,
+          model: rowModel,
+          color: row.color,
+          printerTypeId: resolvedPrinterId,
+          quantity: rowQty,
+          alertThreshold: resolvedThreshold,
+        })
+      }
+      recordAudit('created', 'ink', `إضافة طقم أحبار (${colorRows.length} ألوان): ${model.trim() || colorRows[0].model}`)
+      onSuccess(`تمت إضافة ${colorRows.length} أصناف حبر بنجاح`)
     } else {
+      const onlyColor = colorRows[0]?.color ?? color
+      const data = {
+        brand: resolvedBrand,
+        model: model.trim(),
+        color: onlyColor,
+        printerTypeId: resolvedPrinterId,
+        quantity: Number(quantity),
+        alertThreshold: resolvedThreshold,
+      }
       inksStore.add(data)
       recordAudit('created', 'ink', `إضافة صنف حبر: ${data.model} (الكمية: ${data.quantity})`)
       onSuccess('تمت إضافة صنف الحبر بنجاح')
@@ -724,7 +807,7 @@ function InkForm({
         <>
           <Button onClick={onClose}>إلغاء</Button>
           <Button variant="primary" type="submit" form="ink-form">
-            {isEdit ? 'حفظ التعديلات' : 'إضافة الصنف'}
+            {isEdit ? 'حفظ التعديلات' : isMultiColor ? `إضافة (${colorRows.length} ألوان)` : 'إضافة الصنف'}
           </Button>
         </>
       }
@@ -750,8 +833,8 @@ function InkForm({
               aria-describedby={d}
               aria-invalid={!!show(errors.model)}
               value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="HP 205A (CF530A)"
+              onChange={(e) => handleModelChange(e.target.value)}
+              placeholder="مثال: HP 222A"
               autoFocus
             />
           )}
@@ -787,34 +870,51 @@ function InkForm({
           </Field>
         </div>
 
-        <fieldset className="sm:col-span-2">
-          <legend className="mb-1.5 text-sm font-medium text-slate-700">اللون</legend>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {inkColors.map((c) => (
-              <label
-                key={c.id}
-                className={cx(
-                  'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
-                  'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-slate-900',
-                  color === c.id ? 'border-slate-900 bg-slate-50 font-semibold' : 'border-slate-300 hover:border-slate-400',
-                )}
-              >
-                <input
-                  type="radio"
-                  name="ink-color"
-                  value={c.id}
-                  checked={color === c.id}
-                  onChange={() => setColor(c.id)}
-                  className="sr-only"
-                />
-                <Swatch meta={c} />
-                {c.name} ({c.code})
-              </label>
-            ))}
+        {isEdit ? (
+          <fieldset className="sm:col-span-2">
+            <legend className="mb-1.5 text-sm font-medium text-slate-700">اللون</legend>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {inkColors.map((c) => (
+                <label
+                  key={c.id}
+                  className={cx(
+                    'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                    'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-slate-900',
+                    color === c.id ? 'border-slate-900 bg-slate-50 font-semibold' : 'border-slate-300 hover:border-slate-400',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="ink-color"
+                    value={c.id}
+                    checked={color === c.id}
+                    onChange={() => setColor(c.id)}
+                    className="sr-only"
+                  />
+                  <Swatch meta={c} />
+                  {c.name} ({c.code})
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : (
+          <div className="sm:col-span-2">
+            <InkColorSetSelector
+              inkColors={inkColors}
+              rows={colorRows}
+              baseModel={model}
+              baseQuantity={quantity}
+              onChange={setColorRows}
+              error={show(errors.colors)}
+            />
           </div>
-        </fieldset>
+        )}
 
-        <Field label="الكمية المتوفرة" error={show(errors.quantity)} hint="عدد الخراطيش في المخزن الآن">
+        <Field
+          label={isMultiColor ? 'الكمية الافتراضية لكل لون' : 'الكمية المتوفرة'}
+          error={show(errors.quantity)}
+          hint="عدد الخراطيش في المخزن الآن"
+        >
           {(id, d) => (
             <TextInput
               id={id}
@@ -822,7 +922,7 @@ function InkForm({
               aria-describedby={d}
               aria-invalid={!!show(errors.quantity)}
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onChange={(e) => handleQuantityChange(e.target.value)}
               placeholder="12"
             />
           )}

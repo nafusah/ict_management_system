@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { CheckCircle2, ClipboardCheck, Eye, Plus, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, ClipboardCheck, Eye, Plus, Printer, Trash2, XCircle } from 'lucide-react'
+import { InkReceiptModal, type InkReceiptData } from './components/InkReceiptModal'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import {
   Button,
@@ -91,6 +92,7 @@ export default function InkVouchersPage() {
   const [approving, setApproving] = useState<InkVoucher | null>(null)
   const [rejecting, setRejecting] = useState<InkVoucher | null>(null)
   const [deleting, setDeleting] = useState<InkVoucher | null>(null)
+  const [receiptData, setReceiptData] = useState<InkReceiptData | null>(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone?: 'green' | 'red' } | null>(null)
 
@@ -436,6 +438,37 @@ export default function InkVouchersPage() {
                           <IconButton label="عرض تفاصيل الإذن" onClick={() => setViewing(v)}>
                             <Eye className="size-4" />
                           </IconButton>
+                          {v.status === 'dispensed' && (
+                            <IconButton
+                              label="طباعة وصل استلام"
+                              className="text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                              onClick={() =>
+                                setReceiptData({
+                                  receiptNo: v.id,
+                                  date: v.dispensedAt ? v.dispensedAt.slice(0, 10) : v.date,
+                                  department: v.department,
+                                  scope: v.scope ?? 'shared',
+                                  recipientName: v.recipientName,
+                                  requesterName: v.requesterName,
+                                  approvedByName: v.approvedByName,
+                                  notes: v.notes,
+                                  items: v.items.map((it) => {
+                                    const ink = inkMap[it.inkId]
+                                    const pt = ink?.printerTypeId ? printerTypes.find((p) => p.id === ink.printerTypeId) : undefined
+                                    return {
+                                      model: it.model,
+                                      brand: it.brand ?? ink?.brand ?? '—',
+                                      colorName: colorMap[it.color]?.name ?? it.color,
+                                      printerTypeName: pt?.name ?? null,
+                                      quantity: it.quantity,
+                                    }
+                                  }),
+                                })
+                              }
+                            >
+                              <Printer className="size-4" />
+                            </IconButton>
+                          )}
                           {v.status === 'pending' && canApprove && (
                             <>
                               <IconButton
@@ -542,6 +575,32 @@ export default function InkVouchersPage() {
         colorMap={colorMap}
         inkMap={inkMap}
         canApprove={canApprove}
+        onPrintReceipt={() => {
+          if (!viewing) return
+          const v = viewing
+          setViewing(null)
+          setReceiptData({
+            receiptNo: v.id,
+            date: v.dispensedAt ? v.dispensedAt.slice(0, 10) : v.date,
+            department: v.department,
+            scope: v.scope ?? 'shared',
+            recipientName: v.recipientName,
+            requesterName: v.requesterName,
+            approvedByName: v.approvedByName,
+            notes: v.notes,
+            items: v.items.map((it) => {
+              const ink = inkMap[it.inkId]
+              const pt = ink?.printerTypeId ? printerTypes.find((p) => p.id === ink.printerTypeId) : undefined
+              return {
+                model: it.model,
+                brand: it.brand ?? ink?.brand ?? '—',
+                colorName: colorMap[it.color]?.name ?? it.color,
+                printerTypeName: pt?.name ?? null,
+                quantity: it.quantity,
+              }
+            }),
+          })
+        }}
         onApprove={() => {
           if (!viewing) return
           const target = viewing
@@ -564,6 +623,8 @@ export default function InkVouchersPage() {
         busy={busy}
         onConfirm={handleConfirmDispense}
       />
+
+      <InkReceiptModal receipt={receiptData} onClose={() => setReceiptData(null)} />
 
       <RejectVoucherModal
         voucher={rejecting}
@@ -834,6 +895,7 @@ function VoucherDetailModal({
   colorMap,
   inkMap,
   canApprove,
+  onPrintReceipt,
   onApprove,
   onReject,
 }: {
@@ -842,6 +904,7 @@ function VoucherDetailModal({
   colorMap: Record<string, InkColorItem>
   inkMap: Record<string, { quantity: number }>
   canApprove: boolean
+  onPrintReceipt: () => void
   onApprove: () => void
   onReject: () => void
 }) {
@@ -859,6 +922,12 @@ function VoucherDetailModal({
           <Button variant="secondary" type="button" onClick={onClose}>
             إغلاق
           </Button>
+          {voucher.status === 'dispensed' && (
+            <Button variant="primary" type="button" onClick={onPrintReceipt}>
+              <Printer className="size-4" />
+              طباعة وصل استلام
+            </Button>
+          )}
           {voucher.status === 'pending' && canApprove && (
             <>
               <Button variant="danger" type="button" onClick={onReject}>

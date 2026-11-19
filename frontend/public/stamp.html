@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ختم شركة نفوسة للعمليات النفطية - إدارة الإتصالات وتقنية المعلومات</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Cairo:wght@700;800&family=Tinos:wght@700&display=swap');
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #e9e4d5;
+      /* لون الورقة الصفراء الفاتحة */
+      margin: 0;
+    }
+
+    /* تأثير الحبر المطاطي الخفيف */
+    .stamp-wrapper {
+      filter: url(#ink-texture);
+    }
+
+    /* الإطار الخارجي للختم */
+    .stamp-box {
+      width: 520px;
+      border: 3px solid #152b8c;
+      color: #152b8c;
+      background: transparent;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    /* القسم العلوي والأوسط متداخلان كما في الختم الأصلي */
+    .upper-section {
+      display: flex;
+      flex-direction: column;
+      border-bottom: 3px solid #152b8c;
+    }
+
+    /* صف الشعارات واسم الشركة */
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 10px 16px 0 16px;
+    }
+
+    .logo-svg {
+      width: 48px;
+      height: 54px;
+      fill: currentColor;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .company-title {
+      text-align: center;
+      padding-top: 6px;
+      flex-grow: 1;
+    }
+
+    .company-ar {
+      font-family: 'Cairo', sans-serif;
+      font-size: 15.5px;
+      font-weight: 800;
+      margin: 0 0 2px 0;
+      letter-spacing: 0.2px;
+    }
+
+    .company-en {
+      font-family: 'Tinos', 'Times New Roman', serif;
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+      direction: ltr;
+      letter-spacing: 0.3px;
+    }
+
+    /* صف (أستلم - التاريخ - RECEVIDE) */
+    .middle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+      margin-top: 4px;
+      height: 98px;
+    }
+
+    /* الصندوق الجانبي الأيمن: أستلم */
+    .side-right {
+      width: 72px;
+      border-top: 3px solid #152b8c;
+      border-left: 3px solid #152b8c;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .text-ar-vertical {
+      writing-mode: vertical-rl;
+      font-family: 'Cairo', sans-serif;
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      padding-bottom: 4px;
+    }
+
+    /* الصندوق الجانبي الأيسر: RECEVIDE */
+    .side-left {
+      width: 72px;
+      border-top: 3px solid #152b8c;
+      border-right: 3px solid #152b8c;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .text-en-vertical {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-family: 'Tinos', 'Times New Roman', serif;
+      font-size: 16.5px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+    }
+
+    /* خانة التاريخ في المنتصف */
+    .date-center {
+      flex-grow: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      direction: ltr;
+      font-family: 'Arial Narrow', 'Roboto Condensed', sans-serif;
+      font-size: 31px;
+      font-weight: 700;
+      padding-bottom: 6px;
+    }
+
+    .date-year {
+      letter-spacing: -0.5px;
+      margin-right: 14px;
+    }
+
+    .date-month {
+      letter-spacing: -1px;
+      margin-right: 12px;
+    }
+
+    .date-day {
+      display: inline-flex;
+      align-items: baseline;
+    }
+
+    /* محاكاة التفاوت البسيط في عجلة أرقام اليوم 18 */
+    .digit-1 {
+      display: inline-block;
+      transform: translateY(-2px);
+      margin-right: 2px;
+    }
+
+    .digit-8 {
+      display: inline-block;
+      transform: translateY(1px);
+    }
+
+    /* القسم السفلي: الإدارة */
+    .footer-section {
+      text-align: center;
+      padding: 7px 10px 9px 10px;
+    }
+
+    .dept-ar {
+      font-family: 'Cairo', sans-serif;
+      font-size: 18.5px;
+      font-weight: 800;
+      margin: 0 0 3px 0;
+    }
+
+    .dept-en {
+      font-family: 'Tinos', 'Times New Roman', serif;
+      font-size: 14.5px;
+      font-weight: 700;
+      margin: 0;
+      direction: ltr;
+      letter-spacing: 0.2px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- فلتر SVG لإعطاء ملمس حبر الختم المطاطي -->
+  <svg width="0" height="0" style="position:absolute;">
+    <filter id="ink-texture">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.4" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </svg>
+
+  <div class="stamp-wrapper">
+    <div class="stamp-box">
+
+      <div class="upper-section">
+        <!-- الشعارات واسم الشركة -->
+        <div class="header-row">
+          <!-- الشعار الأيمن -->
+          <svg class="logo-svg" viewBox="304 0 78 89" aria-hidden="true">
+            <path
+              d="M350.622,1.627 C342.084,40.893 401.711,49.99 349.868,87.373 C355.865,57.449 349.922,58.045 342.084,46.309 C328.252,25.597 348.752,8.104 350.622,1.627 z" />
+            <path
+              d="M323.194,28.282 C298.842,53.708 309.397,78.468 333.91,87.357 C349.583,60.956 321.311,61.744 323.194,28.282 z" />
+          </svg>
+
+          <div class="company-title">
+            <p class="company-ar">شركة نفوسة للعمليات النفطية بي.في</p>
+            <p class="company-en">Nafusah Oil Operation B.V</p>
+          </div>
+
+          <!-- الشعار الأيسر -->
+          <svg class="logo-svg" viewBox="304 0 78 89" aria-hidden="true">
+            <path
+              d="M350.622,1.627 C342.084,40.893 401.711,49.99 349.868,87.373 C355.865,57.449 349.922,58.045 342.084,46.309 C328.252,25.597 348.752,8.104 350.622,1.627 z" />
+            <path
+              d="M323.194,28.282 C298.842,53.708 309.397,78.468 333.91,87.357 C349.583,60.956 321.311,61.744 323.194,28.282 z" />
+          </svg>
+        </div>
+
+        <!-- المربعات الجانبية والتاريخ -->
+        <div class="middle-row">
+          <div class="side-right">
+            <span class="text-ar-vertical">أستلم</span>
+          </div>
+
+          <div class="date-center">
+            <span class="date-year" id="stamp-year">2026</span>
+            <span class="date-month" id="stamp-month">-11-</span>
+            <span class="date-day">
+              <span class="digit-1" id="stamp-day-1">1</span><span class="digit-8" id="stamp-day-2">8</span>
+            </span>
+          </div>
+
+          <div class="side-left">
+            <span class="text-en-vertical">RECEVIDE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- القسم السفلي -->
+      <div class="footer-section">
+        <p class="dept-ar">إدارة الإتصالات وتقنية المعلومات</p>
+        <p class="dept-en">Information and Communications Technology Department</p>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var now = new Date();
+      var y = String(now.getFullYear());
+      var m = String(now.getMonth() + 1).padStart(2, '0');
+      var d = String(now.getDate()).padStart(2, '0');
+      document.getElementById('stamp-year').textContent = y;
+      document.getElementById('stamp-month').textContent = '-' + m + '-';
+      document.getElementById('stamp-day-1').textContent = d[0];
+      document.getElementById('stamp-day-2').textContent = d[1];
+    })();
+  </script>
+
+</body>
+
+</html>

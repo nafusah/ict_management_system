@@ -10,7 +10,7 @@ import {
   Pill,
   Toast,
 } from '../../shared/components/ui'
-import { deletePrinterType, savePrinterType, useInks, usePrinterTypes } from '../../shared/data/store'
+import { deletePrinterType, inksStore, savePrinterType, useInks, usePrinterTypes } from '../../shared/data/store'
 import type { PrinterTypeItem } from '../../shared/data/types'
 
 export default function PrinterTypes() {
@@ -125,12 +125,21 @@ export default function PrinterTypes() {
         item={editing === 'new' ? null : editing}
         open={editing !== null}
         onClose={() => setEditing(null)}
-        onSave={async (data) => {
+        onSave={async (data, initialInks) => {
           const isEdit = editing && editing !== 'new'
-          await savePrinterType(data, isEdit ? editing.id : undefined)
+          const saved = await savePrinterType(data, isEdit ? editing.id : undefined)
+          if (!isEdit && initialInks?.length) {
+            for (const draft of initialInks) {
+              inksStore.add({ ...draft, printerTypeId: saved.id })
+            }
+          }
           setEditing(null)
           setToast({
-            message: isEdit ? 'تم حفظ تعديلات الطابعة بنجاح' : 'تمت إضافة الطابعة بنجاح',
+            message: isEdit
+              ? 'تم حفظ تعديلات الطابعة بنجاح'
+              : initialInks?.length
+                ? `تمت إضافة الطابعة و${initialInks.length} أصناف حبر مرتبطة بها بنجاح`
+                : 'تمت إضافة الطابعة بنجاح',
             tone: 'green',
           })
         }}

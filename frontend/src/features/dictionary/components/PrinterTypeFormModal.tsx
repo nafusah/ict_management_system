@@ -1,8 +1,13 @@
 import { useRef, useState } from 'react'
 import { ImagePlus, Printer, X } from 'lucide-react'
 import { Button, Field, Modal, SelectInput, TextInput } from '../../../shared/components/ui'
-import { useBrands } from '../../../shared/data/store'
-import type { PrinterTypeItem } from '../../../shared/data/types'
+import { useBrands, useInkColors } from '../../../shared/data/store'
+import type { Ink, PrinterTypeItem } from '../../../shared/data/types'
+import {
+  InkColorSetSelector,
+  findColorIdsByPreset,
+  type ColorInkRow,
+} from '../../inks/components/InkColorSetSelector'
 
 function resizeImageToDataUrl(file: File, maxSize = 360): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -42,9 +47,13 @@ export function PrinterTypeFormModal({
   item: PrinterTypeItem | null
   open: boolean
   onClose: () => void
-  onSave: (data: Omit<PrinterTypeItem, 'id'>) => Promise<void>
+  onSave: (
+    data: Omit<PrinterTypeItem, 'id'>,
+    initialInks?: Omit<Ink, 'id' | 'printerTypeId'>[],
+  ) => Promise<void>
 }) {
   const brands = useBrands()
+  const inkColors = useInkColors()
   const brandOptions = Array.from(new Set(brands.map((b) => b.name)))
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -56,6 +65,13 @@ export function PrinterTypeFormModal({
   const [submitting, setSubmitting] = useState(false)
   const [lastKey, setLastKey] = useState('')
 
+  const [createInks, setCreateInks] = useState(false)
+  const [inkModel, setInkModel] = useState('')
+  const [inkQuantity, setInkQuantity] = useState('2')
+  const [inkThreshold, setInkThreshold] = useState('2')
+  const [colorRows, setColorRows] = useState<ColorInkRow[]>([])
+  const [inkError, setInkError] = useState<string | undefined>()
+
   const currentKey = open ? (item?.id ?? 'new') : 'closed'
   if (currentKey !== lastKey) {
     setLastKey(currentKey)
@@ -66,7 +82,30 @@ export function PrinterTypeFormModal({
       setImageError(undefined)
       setError(undefined)
       setSubmitting(false)
+      setCreateInks(false)
+      setInkModel('')
+      setInkQuantity('2')
+      setInkThreshold('2')
+      const defaultColor = findColorIdsByPreset(inkColors, 'mono')[0] ?? inkColors[0]?.id ?? 'black'
+      setColorRows([{ color: defaultColor, model: '', quantity: '2' }])
+      setInkError(undefined)
     }
+  }
+
+  const handleInkModelChange = (nextModel: string) => {
+    setColorRows((prev) =>
+      prev.map((r) => (!r.model.trim() || r.model === inkModel ? { ...r, model: nextModel } : r)),
+    )
+    setInkModel(nextModel)
+    setInkError(undefined)
+  }
+
+  const handleInkQuantityChange = (nextQty: string) => {
+    setColorRows((prev) =>
+      prev.map((r) => (!r.quantity.trim() || r.quantity === inkQuantity ? { ...r, quantity: nextQty } : r)),
+    )
+    setInkQuantity(nextQty)
+    setInkError(undefined)
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,14 +135,53 @@ export function PrinterTypeFormModal({
       setError('يرجى إدخال اسم أو موديل الطابعة')
       return
     }
+
+    let initialInks: Omit<Ink, 'id' | 'printerTypeId'>[] | undefined
+    if (!item && createInks) {
+      const isCount = (v: string) => /^\d+$/.test(v.trim())
+      if (colorRows.length === 0) {
+        setInkError('يرجى اختيار لون واحد على الأقل.')
+        return
+      }
+      if (!isCount(inkThreshold)) {
+        setInkError('يرجى إدخال حد تنبيه صحيح (رقم).')
+        return
+      }
+      const drafts: Omit<Ink, 'id' | 'printerTypeId'>[] = []
+      for (const row of colorRows) {
+        const resolvedModel = (row.model.trim() || inkModel.trim())
+        const resolvedQtyStr = (row.quantity || inkQuantity).trim()
+        if (!resolvedModel) {
+          setInkError('يرجى إدخال موديل الحبر (مثل 222A).')
+          return
+        }
+        if (!isCount(resolvedQtyStr)) {
+          setInkError('يرجى إدخال كمية صحيحة لكل لون.')
+          return
+        }
+        drafts.push({
+          brand: brand.trim() || brandOptions[0] || 'HP',
+          model: resolvedModel,
+          color: row.color,
+          quantity: Number(resolvedQtyStr),
+          alertThreshold: Number(inkThreshold.trim()),
+        })
+      }
+      initialInks = drafts
+    }
+
     setError(undefined)
+    setInkError(undefined)
     setSubmitting(true)
     try {
-      await onSave({
-        name: name.trim(),
-        brand: brand.trim() || undefined,
-        image: image || null,
-      })
+      await onSave(
+        {
+          name: name.trim(),
+          brand: brand.trim() || undefined,
+          image: image || null,
+        },
+        initialInks,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر حفظ الطابعة، يرجى المحاولة مرة أخرى.')
     } finally {
@@ -115,7 +193,7 @@ export function PrinterTypeFormModal({
     <Modal
       open={open}
       onClose={() => !submitting && onClose()}
-      size="sm"
+      size={!item && createInks ? 'md' : 'sm'}
       title={item ? `تعديل نوع الطابعة: ${item.name}` : 'إضافة نوع طابعة جديد'}
       description="أدخل اسم أو موديل الطابعة وأرفق صورتها (اختياري) ليظهر لجميع المستخدمين في صفحة الطابعات والأحبار."
       footer={
@@ -205,6 +283,75 @@ export function PrinterTypeFormModal({
             />
           )}
         </Field>
+
+        {!item && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-900">
+              <input
+                type="checkbox"
+                checked={createInks}
+                onChange={(e) => {
+                  setCreateInks(e.target.checked)
+                  setInkError(undefined)
+                }}
+                className="accent-slate-900"
+              />
+              إنشاء أحبار هذه الطابعة الآن (اختياري)
+            </label>
+
+            {createInks && (
+              <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Field label="موديل الحبر الأساسي">
+                    {(id) => (
+                      <TextInput
+                        id={id}
+                        dir="ltr"
+                        className="text-right"
+                        placeholder="مثال: 222A"
+                        value={inkModel}
+                        onChange={(e) => handleInkModelChange(e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field label="الكمية لكل لون">
+                    {(id) => (
+                      <TextInput
+                        id={id}
+                        type="number"
+                        min={0}
+                        dir="ltr"
+                        value={inkQuantity}
+                        onChange={(e) => handleInkQuantityChange(e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field label="حد التنبيه">
+                    {(id) => (
+                      <TextInput
+                        id={id}
+                        type="number"
+                        min={0}
+                        dir="ltr"
+                        value={inkThreshold}
+                        onChange={(e) => setInkThreshold(e.target.value)}
+                      />
+                    )}
+                  </Field>
+                </div>
+
+                <InkColorSetSelector
+                  inkColors={inkColors}
+                  rows={colorRows}
+                  baseModel={inkModel}
+                  baseQuantity={inkQuantity}
+                  onChange={setColorRows}
+                  error={inkError}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </form>
     </Modal>
   )
