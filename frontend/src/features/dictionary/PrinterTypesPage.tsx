@@ -130,7 +130,7 @@ export default function PrinterTypes() {
           const saved = await savePrinterType(data, isEdit ? editing.id : undefined)
           if (initialInks?.length) {
             for (const draft of initialInks) {
-              inksStore.add({ ...draft, printerTypeId: saved.id })
+              await inksStore.addAsync({ ...draft, printerTypeId: saved.id })
             }
           }
           setEditing(null)

@@ -1,4 +1,5 @@
 import { cx, TextInput } from '../../../shared/components/ui'
+import { QuantityStepper } from './QuantityStepper'
 import type { InkColor, InkColorItem } from '../../../shared/data/types'
 
 export interface ColorInkRow {
@@ -17,14 +18,14 @@ export function findColorIdsByPreset(
       return needles.some((n) => hay.includes(n))
     })?.id
 
-  const black = matchOne(['black', 'أسود', 'اسود', 'clr-001', 'k']) ?? inkColors[0]?.id
+  const black = matchOne(['black', 'Ø£Ø³ÙˆØ¯', 'Ø§Ø³ÙˆØ¯', 'clr-001', 'k']) ?? inkColors[0]?.id
   if (preset === 'mono') {
     return black ? [black] : []
   }
 
-  const cyan = matchOne(['cyan', 'أزرق', 'ازرق', 'سماوي', 'clr-002', 'c'])
-  const magenta = matchOne(['magenta', 'أحمر', 'احمر', 'وردي', 'قرمزي', 'clr-003', 'm'])
-  const yellow = matchOne(['yellow', 'أصفر', 'اصفر', 'clr-004', 'y'])
+  const cyan = matchOne(['cyan', 'Ø£Ø²Ø±Ù‚', 'Ø§Ø²Ø±Ù‚', 'Ø³Ù…Ø§ÙˆÙŠ', 'clr-002', 'c'])
+  const magenta = matchOne(['magenta', 'Ø£Ø­Ù…Ø±', 'Ø§Ø­Ù…Ø±', 'ÙˆØ±Ø¯ÙŠ', 'Ù‚Ø±Ù…Ø²ÙŠ', 'clr-003', 'm'])
+  const yellow = matchOne(['yellow', 'Ø£ØµÙØ±', 'Ø§ØµÙØ±', 'clr-004', 'y'])
 
   const list = [black, cyan, magenta, yellow].filter((id): id is InkColor => Boolean(id))
   const unique = Array.from(new Set(list))
@@ -87,7 +88,7 @@ export function InkColorSetSelector({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium text-slate-700">
-          الألوان {rows.length > 1 && <span className="text-xs text-slate-500">({rows.length} ألوان محددة)</span>}
+          Ø§Ù„Ø£Ù„ÙˆØ§Ù† {rows.length > 1 && <span className="text-xs text-slate-500">({rows.length} Ø£Ù„ÙˆØ§Ù† Ù…Ø­Ø¯Ø¯Ø©)</span>}
         </span>
         <div className="flex flex-wrap gap-1.5">
           <button
@@ -95,14 +96,14 @@ export function InkColorSetSelector({
             onClick={() => applyPreset('mono')}
             className="cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100"
           >
-            أحادي (أسود)
+            Ø£Ø­Ø§Ø¯ÙŠ (Ø£Ø³ÙˆØ¯)
           </button>
           <button
             type="button"
             onClick={() => applyPreset('cmyk')}
             className="cursor-pointer rounded-md border border-slate-900 bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
           >
-            طقم ملون (CMYK)
+            Ø·Ù‚Ù… Ù…Ù„ÙˆÙ† (CMYK)
           </button>
         </div>
       </div>
@@ -135,10 +136,10 @@ export function InkColorSetSelector({
 
       {rows.length > 0 && (
         <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-          <div className="mb-2 grid grid-cols-[minmax(80px,110px)_1fr_80px] items-center gap-2 px-1 text-[11px] font-semibold text-slate-500">
-            <span>اللون</span>
-            <span>الموديل الفرعي (يجلب الرئيسي تلقائياً ويمكنك تعديله)</span>
-            <span className="text-center">الكمية</span>
+          <div className="mb-2 grid grid-cols-[minmax(80px,110px)_1fr_auto] items-center gap-2 px-1 text-[11px] font-semibold text-slate-500">
+            <span>Ø§Ù„Ù„ÙˆÙ†</span>
+            <span>Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ±Ø¹ÙŠ (ÙŠØ¬Ù„Ø¨ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹ ÙˆÙŠÙ…ÙƒÙ†Ùƒ ØªØ¹Ø¯ÙŠÙ„Ù‡)</span>
+            <span className="text-center">Ø§Ù„ÙƒÙ…ÙŠØ©</span>
           </div>
           <div className="space-y-2">
             {rows.map((row) => {
@@ -146,7 +147,7 @@ export function InkColorSetSelector({
               return (
                 <div
                   key={row.color}
-                  className="grid grid-cols-[minmax(80px,110px)_1fr_80px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5"
+                  className="grid grid-cols-[minmax(80px,110px)_1fr_auto] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5"
                 >
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                     <span
@@ -159,20 +160,17 @@ export function InkColorSetSelector({
                   <TextInput
                     dir="ltr"
                     className="h-8 text-right text-xs"
-                    placeholder={baseModel || 'مثال: 222A أو W2220A'}
+                    placeholder={baseModel || 'Ù…Ø«Ø§Ù„: 222A Ø£Ùˆ W2220A'}
                     value={row.model}
                     onChange={(e) => updateRow(row.color, { model: e.target.value })}
-                    aria-label={`الموديل الفرعي للون ${colorMeta?.name ?? row.color}`}
+                    aria-label={`Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ±Ø¹ÙŠ Ù„Ù„ÙˆÙ† ${colorMeta?.name ?? row.color}`}
                   />
-                  <TextInput
-                    type="number"
+                  <QuantityStepper
+                    size="sm"
                     min={0}
-                    dir="ltr"
-                    className="h-8 text-center text-xs font-bold tabular-nums"
-                    placeholder="الكمية"
                     value={row.quantity}
-                    onChange={(e) => updateRow(row.color, { quantity: e.target.value })}
-                    aria-label={`كمية اللون ${colorMeta?.name ?? row.color}`}
+                    onChange={(v) => updateRow(row.color, { quantity: v })}
+                    label={`ÙƒÙ…ÙŠØ© Ø§Ù„Ù„ÙˆÙ† ${colorMeta?.name ?? row.color}`}
                   />
                 </div>
               )

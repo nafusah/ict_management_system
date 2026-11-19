@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { CheckCircle2, ClipboardCheck, Eye, Plus, Printer, Trash2, XCircle } from 'lucide-react'
 import { InkReceiptModal, type InkReceiptData } from './components/InkReceiptModal'
+import { QuantityStepper } from './components/QuantityStepper'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import {
   Button,
@@ -645,6 +646,8 @@ export default function InkVouchersPage() {
   )
 }
 
+const NO_PRINTER = '__none__'
+
 function CreateVoucherModal({
   open,
   onClose,
@@ -673,7 +676,9 @@ function CreateVoucherModal({
   const [recipient, setRecipient] = useState(() => createInitialRecipientState(departments, employees, 'shared'))
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState('')
-  const [rows, setRows] = useState<{ inkId: string; quantity: string }[]>([{ inkId: '', quantity: '1' }])
+  const [rows, setRows] = useState<{ printerId: string; inkId: string; quantity: string }[]>([
+    { printerId: '', inkId: '', quantity: '1' },
+  ])
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -686,24 +691,35 @@ function CreateVoucherModal({
     )
   }, [open, departments, employees])
 
-  const inkOptions = useMemo(
-    () =>
-      availableInks.map((i) => {
-        const printerName = i.printerTypeId ? printerTypeMap[i.printerTypeId]?.name : undefined
+  const printerOptions = useMemo(() => {
+    const ids = new Set(availableInks.map((i) => i.printerTypeId || NO_PRINTER))
+    const opts = Array.from(ids)
+      .filter((id) => id !== NO_PRINTER)
+      .map((id) => {
+        const p = printerTypeMap[id]
+        return { value: id, label: p ? (p.brand ? `${p.name} (${p.brand})` : p.name) : id }
+      })
+      .sort((a, b) => a.label.localeCompare(b.label))
+    if (ids.has(NO_PRINTER)) opts.push({ value: NO_PRINTER, label: 'أحبار غير مرتبطة بطابعة' })
+    return opts
+  }, [availableInks, printerTypeMap])
+
+  const inkOptionsFor = (printerId: string) =>
+    availableInks
+      .filter((i) => (i.printerTypeId || NO_PRINTER) === printerId)
+      .map((i) => {
         const colorName = colorMap[i.color]?.name ?? i.color
         return {
           value: i.id,
-          label: `${i.model} — ${printerName ? `${printerName} — ` : ''}${colorName} (المتوفر: ${i.quantity})`,
+          label: `${colorName} — ${i.model} (المتوفر: ${i.quantity})`,
         }
-      }),
-    [availableInks, printerTypeMap, colorMap],
-  )
+      })
 
   const resetForm = () => {
     setRecipient(createInitialRecipientState(departments, employees, 'shared'))
     setDate(new Date().toISOString().slice(0, 10))
     setNotes('')
-    setRows([{ inkId: '', quantity: '1' }])
+    setRows([{ printerId: '', inkId: '', quantity: '1' }])
     setError('')
   }
 
@@ -820,7 +836,7 @@ function CreateVoucherModal({
               type="button"
               variant="ghost"
               className="h-7 px-2 text-xs"
-              onClick={() => setRows((prev) => [...prev, { inkId: '', quantity: '1' }])}
+              onClick={() => setRows((prev) => [...prev, { printerId: prev[prev.length - 1]?.printerId ?? '', inkId: '', quantity: '1' }])}
             >
               <Plus className="size-3.5" />
               إضافة صنف آخر
@@ -834,31 +850,45 @@ function CreateVoucherModal({
           ) : (
             <div className="space-y-2.5">
               {rows.map((row, idx) => (
-                <div key={idx} className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
+                <div key={idx} className="flex flex-wrap items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/60 p-2 sm:flex-nowrap">
+                  <div className="min-w-0 flex-1 basis-full sm:basis-0">
                     <SearchableSelect
-                      value={row.inkId}
+                      value={row.printerId}
                       onChange={(val) =>
-                        setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, inkId: val } : r)))
-                      }
-                      options={inkOptions}
-                      placeholder="اختر صنف الحبر..."
-                      searchPlaceholder="ابحث بالموديل أو الطابعة..."
-                    />
-                  </div>
-                  <div className="w-24 shrink-0">
-                    <TextInput
-                      type="number"
-                      min={1}
-                      value={row.quantity}
-                      onChange={(e) =>
                         setRows((prev) =>
-                          prev.map((r, i) => (i === idx ? { ...r, quantity: e.target.value } : r)),
+                          prev.map((r, i) => (i === idx ? { ...r, printerId: val, inkId: '' } : r)),
                         )
                       }
-                      aria-label="الكمية"
+                      options={printerOptions}
+                      placeholder="اختر الطابعة أولاً..."
+                      searchPlaceholder="ابحث عن الطابعة..."
                     />
                   </div>
+                  <div className="min-w-0 flex-1">
+                    {row.printerId ? (
+                      <SearchableSelect
+                        value={row.inkId}
+                        onChange={(val) =>
+                          setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, inkId: val } : r)))
+                        }
+                        options={inkOptionsFor(row.printerId)}
+                        placeholder="اختر الحبر (اللون)..."
+                        searchPlaceholder="ابحث باللون أو الموديل..."
+                      />
+                    ) : (
+                      <div className="flex h-10 items-center rounded-lg border border-dashed border-slate-300 bg-white px-3 text-xs text-slate-400">
+                        اختر الطابعة لعرض أحبارها
+                      </div>
+                    )}
+                  </div>
+                  <QuantityStepper
+                    min={1}
+                    max={inks.find((i) => i.id === row.inkId)?.quantity}
+                    value={row.quantity}
+                    onChange={(v) =>
+                      setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, quantity: v } : r)))
+                    }
+                  />
                   {rows.length > 1 && (
                     <IconButton
                       label="حذف السطر"

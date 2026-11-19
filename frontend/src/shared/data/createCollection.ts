@@ -29,7 +29,9 @@ export interface CollectionState<T extends { id: string }> {
   setAll: (next: T[]) => void
   hydrate: () => Promise<void>
   add: (data: Omit<T, 'id'>) => void
+  addAsync: (data: Omit<T, 'id'>) => Promise<T>
   update: (item: T) => void
+  updateAsync: (item: T) => Promise<T>
   remove: (id: string) => void
 }
 
@@ -58,18 +60,29 @@ export function createCollection<T extends { id: string }>(
         }
       },
       add: (data) => {
-        const tempId = newId(idPrefix)
-        const optimistic = { ...data, id: tempId } as T
-        commit([optimistic, ...get().items])
-
         if (apiPath && getStoredToken()) {
           void request
             .post<T>(apiPath, data)
             .then((created) => {
-              commit(get().items.map((i) => (i.id === tempId ? created : i)))
+              commit([created, ...get().items])
             })
-            .catch(() => {})
+            .catch(() => { })
+          return
         }
+        const tempId = newId(idPrefix)
+        const optimistic = { ...data, id: tempId } as T
+        commit([optimistic, ...get().items])
+      },
+      addAsync: async (data) => {
+        if (apiPath && getStoredToken()) {
+          const created = await request.post<T>(apiPath, data)
+          commit([created, ...get().items])
+          return created
+        }
+        const tempId = newId(idPrefix)
+        const optimistic = { ...data, id: tempId } as T
+        commit([optimistic, ...get().items])
+        return optimistic
       },
       update: (item) => {
         commit(get().items.map((i) => (i.id === item.id ? item : i)))
@@ -79,13 +92,24 @@ export function createCollection<T extends { id: string }>(
             .then((updated) => {
               commit(get().items.map((i) => (i.id === item.id ? updated : i)))
             })
-            .catch(() => {})
+            .catch(() => {
+              void get().hydrate()
+            })
         }
+      },
+      updateAsync: async (item) => {
+        if (apiPath && getStoredToken()) {
+          const updated = await request.put<T>(`${apiPath}/${encodeURIComponent(item.id)}`, item)
+          commit(get().items.map((i) => (i.id === item.id ? updated : i)))
+          return updated
+        }
+        commit(get().items.map((i) => (i.id === item.id ? item : i)))
+        return item
       },
       remove: (id) => {
         commit(get().items.filter((i) => i.id !== id))
         if (apiPath && getStoredToken()) {
-          void request.delete(`${apiPath}/${encodeURIComponent(id)}`).catch(() => {})
+          void request.delete(`${apiPath}/${encodeURIComponent(id)}`).catch(() => { })
         }
       },
     }
@@ -97,7 +121,9 @@ export function createCollection<T extends { id: string }>(
     setAll: (next: T[]) => useStore.getState().setAll(next),
     hydrate: () => useStore.getState().hydrate(),
     add: (data: Omit<T, 'id'>) => useStore.getState().add(data),
+    addAsync: (data: Omit<T, 'id'>) => useStore.getState().addAsync(data),
     update: (item: T) => useStore.getState().update(item),
+    updateAsync: (item: T) => useStore.getState().updateAsync(item),
     remove: (id: string) => useStore.getState().remove(id),
   }
 }

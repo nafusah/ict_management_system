@@ -37,14 +37,18 @@ class InkController extends CrudController
             $inkId = is_array($data) ? ($data['id'] ?? null) : null;
             $ink = $inkId ? Ink::query()->find($inkId) : null;
             if ($ink && (int) $ink->quantity > 0) {
-                app(InkDispenseNotificationService::class)->notifyRestock(
-                    ink: $ink,
-                    addedQty: (int) $ink->quantity,
-                    beforeQty: 0,
-                    afterQty: (int) $ink->quantity,
-                    performedBy: $this->currentUser($request),
-                    operationLabel: 'إضافة صنف حبر جديد',
-                );
+                $addedQty = (int) $ink->quantity;
+                $user = $this->currentUser($request);
+                dispatch(function () use ($ink, $addedQty, $user) {
+                    app(InkDispenseNotificationService::class)->notifyRestock(
+                        ink: $ink,
+                        addedQty: $addedQty,
+                        beforeQty: 0,
+                        afterQty: $addedQty,
+                        performedBy: $user,
+                        operationLabel: 'إضافة صنف حبر جديد',
+                    );
+                })->afterResponse();
             }
         }
 
@@ -59,17 +63,22 @@ class InkController extends CrudController
 
         if ($ink) {
             $afterQty = (int) $ink->quantity;
+            $user = $this->currentUser($request);
             if ($afterQty > $beforeQty) {
-                app(InkDispenseNotificationService::class)->notifyRestock(
-                    ink: $ink,
-                    addedQty: $afterQty - $beforeQty,
-                    beforeQty: $beforeQty,
-                    afterQty: $afterQty,
-                    performedBy: $this->currentUser($request),
-                    operationLabel: 'توريد / إضافة مخزون حبر',
-                );
+                dispatch(function () use ($ink, $afterQty, $beforeQty, $user) {
+                    app(InkDispenseNotificationService::class)->notifyRestock(
+                        ink: $ink,
+                        addedQty: $afterQty - $beforeQty,
+                        beforeQty: $beforeQty,
+                        afterQty: $afterQty,
+                        performedBy: $user,
+                        operationLabel: 'توريد / إضافة مخزون حبر',
+                    );
+                })->afterResponse();
             } elseif ($afterQty < $beforeQty && $afterQty <= (int) $ink->alert_threshold) {
-                app(InkDispenseNotificationService::class)->notifyLowStock([$ink]);
+                dispatch(function () use ($ink) {
+                    app(InkDispenseNotificationService::class)->notifyLowStock([$ink]);
+                })->afterResponse();
             }
         }
 

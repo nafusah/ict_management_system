@@ -29,6 +29,7 @@ import {
 } from './components/DispenseRecipientFields'
 import { InkReceiptModal, type InkReceiptData } from './components/InkReceiptModal'
 import { InkColorSetSelector, type ColorInkRow } from './components/InkColorSetSelector'
+import { QuantityStepper } from './components/QuantityStepper'
 import { OTHER } from '../../shared/data/options'
 import { isLowStock } from '../../shared/data/types'
 import type { Ink, InkColor, InkColorItem } from '../../shared/data/types'
@@ -781,6 +782,8 @@ function InkForm({
     },
   ])
   const [submitted, setSubmitted] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const handleModelChange = (nextModel: string) => {
     setColorRows((prev) =>
@@ -813,78 +816,86 @@ function InkForm({
   }
   const show = (e?: string) => (submitted ? e : undefined)
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    if (Object.values(errors).some(Boolean)) return
+    setSaveError(null)
+    if (Object.values(errors).some(Boolean) || saving) return
     const resolvedBrand = selectedPrinter?.brand || ink?.brand || brandOptions[0] || 'HP'
     const resolvedModel = model.trim()
     const resolvedPrinterId = printerTypeId || null
     const resolvedThreshold = Number(threshold)
 
-    if (isEdit) {
-      const data = {
-        brand: resolvedBrand,
-        model: resolvedModel,
-        color,
-        printerTypeId: resolvedPrinterId,
-        quantity: Number(quantity),
-        alertThreshold: resolvedThreshold,
-      }
-      inksStore.update({ ...data, id: ink.id })
-      recordAudit('updated', 'ink', `تعديل صنف حبر: ${data.model}`, ink.id)
-      onSuccess('تم حفظ تعديلات الحبر بنجاح')
-    } else if (colorRows.length > 1) {
-      for (const row of colorRows) {
-        const rowModel = (row.model || resolvedModel).trim()
-        const rowQty = Number((row.quantity || quantity).trim())
-        inksStore.add({
+    setSaving(true)
+    try {
+      if (isEdit) {
+        const data = {
           brand: resolvedBrand,
-          model: rowModel,
-          color: row.color,
+          model: resolvedModel,
+          color,
           printerTypeId: resolvedPrinterId,
-          quantity: rowQty,
+          quantity: Number(quantity),
           alertThreshold: resolvedThreshold,
-        })
+        }
+        await inksStore.updateAsync({ ...data, id: ink.id })
+        recordAudit('updated', 'ink', `تعديل صنف حبر: ${data.model}`, ink.id)
+        onSuccess('تم حفظ تعديلات الحبر بنجاح')
+      } else if (colorRows.length > 1) {
+        for (const row of colorRows) {
+          const rowModel = (row.model || resolvedModel).trim()
+          const rowQty = Number((row.quantity || quantity).trim())
+          await inksStore.addAsync({
+            brand: resolvedBrand,
+            model: rowModel,
+            color: row.color,
+            printerTypeId: resolvedPrinterId,
+            quantity: rowQty,
+            alertThreshold: resolvedThreshold,
+          })
+        }
+        recordAudit('created', 'ink', `إضافة طقم أحبار (${colorRows.length} ألوان): ${resolvedModel || colorRows[0]?.model}`)
+        onSuccess(`تمت إضافة ${colorRows.length} أصناف حبر بنجاح`)
+      } else {
+        const onlyRow = colorRows[0]
+        const onlyColor = onlyRow?.color ?? color
+        const onlyModel = (onlyRow?.model || resolvedModel).trim()
+        const onlyQty = Number((onlyRow?.quantity || quantity).trim())
+        const data = {
+          brand: resolvedBrand,
+          model: onlyModel,
+          color: onlyColor,
+          printerTypeId: resolvedPrinterId,
+          quantity: onlyQty,
+          alertThreshold: resolvedThreshold,
+        }
+        await inksStore.addAsync(data)
+        recordAudit('created', 'ink', `إضافة صنف حبر: ${data.model} (الكمية: ${data.quantity})`)
+        onSuccess('تمت إضافة صنف الحبر بنجاح')
       }
-      recordAudit('created', 'ink', `إضافة طقم أحبار (${colorRows.length} ألوان): ${resolvedModel || colorRows[0]?.model}`)
-      onSuccess(`تمت إضافة ${colorRows.length} أصناف حبر بنجاح`)
-    } else {
-      const onlyRow = colorRows[0]
-      const onlyColor = onlyRow?.color ?? color
-      const onlyModel = (onlyRow?.model || resolvedModel).trim()
-      const onlyQty = Number((onlyRow?.quantity || quantity).trim())
-      const data = {
-        brand: resolvedBrand,
-        model: onlyModel,
-        color: onlyColor,
-        printerTypeId: resolvedPrinterId,
-        quantity: onlyQty,
-        alertThreshold: resolvedThreshold,
-      }
-      inksStore.add(data)
-      recordAudit('created', 'ink', `إضافة صنف حبر: ${data.model} (الكمية: ${data.quantity})`)
-      onSuccess('تمت إضافة صنف الحبر بنجاح')
+      onClose()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'تعذر حفظ الحبر على الخادم.')
+    } finally {
+      setSaving(false)
     }
-    onClose()
   }
 
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={() => !saving && onClose()}
       title={isEdit ? 'تعديل صنف الحبر' : 'إضافة صنف حبر'}
       description="يتم جلب الماركة تلقائياً من نوع الطابعة المختارة مع إدخال موديل الحبر لمرة واحدة."
       footer={
         <>
-          <Button onClick={onClose}>إلغاء</Button>
-          <Button variant="primary" type="submit" form="ink-form">
-            {isEdit ? 'حفظ التعديلات' : isMultiColor ? `إضافة (${colorRows.length} ألوان)` : 'إضافة الصنف'}
+          <Button onClick={onClose} disabled={saving}>إلغاء</Button>
+          <Button variant="primary" type="submit" form="ink-form" disabled={saving}>
+            {saving ? 'جاري الحفظ...' : isEdit ? 'حفظ التعديلات' : isMultiColor ? `إضافة (${colorRows.length} ألوان)` : 'إضافة الصنف'}
           </Button>
         </>
       }
     >
-      <form id="ink-form" onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
+      <form id="ink-form" onSubmit={(e) => void submit(e)} noValidate className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           {lockPrinterType && selectedPrinter ? (
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm">
@@ -1002,6 +1013,12 @@ function InkForm({
             />
           )}
         </Field>
+
+        {saveError && (
+          <p className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {saveError}
+          </p>
+        )}
       </form>
     </Modal>
   )
@@ -1204,14 +1221,11 @@ function BatchDispenseModal({
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <TextInput
-                        type="number"
+                      <QuantityStepper
                         min={1}
-                        max={selectedInk?.quantity ?? 999}
+                        max={selectedInk?.quantity}
                         value={r.quantity}
-                        onChange={(e) => updateRow(r.key, { quantity: e.target.value })}
-                        className="w-24 text-center font-bold tabular-nums"
-                        aria-label="الكمية"
+                        onChange={(v) => updateRow(r.key, { quantity: v })}
                       />
                       {rows.length > 1 && (
                         <IconButton

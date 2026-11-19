@@ -10,14 +10,24 @@ trait HasPrefixedId
             if (! empty($model->id)) {
                 return;
             }
-            $prefix = static::idPrefix();
-            $max = static::query()
-                ->where('id', 'like', $prefix.'-%')
-                ->pluck('id')
-                ->map(fn (string $id) => (int) preg_replace('/^'.preg_quote($prefix, '/').'-/', '', $id))
-                ->max() ?? 0;
-
-            $model->id = sprintf('%s-%03d', $prefix, $max + 1);
+            $model->id = static::nextPrefixedId();
         });
+    }
+
+    /**
+     * يحسب الرقم التالي مع احتساب السجلات المحذوفة (Soft Deleted) أيضاً،
+     * حتى لا يتكرر رقم صنف محذوف ويفشل الحفظ بخطأ تكرار المفتاح الأساسي.
+     */
+    public static function nextPrefixedId(): string
+    {
+        $prefix = static::idPrefix();
+        $max = static::query()
+            ->withoutGlobalScopes()
+            ->where('id', 'like', $prefix.'-%')
+            ->pluck('id')
+            ->map(fn (string $id) => (int) preg_replace('/^'.preg_quote($prefix, '/').'-/', '', $id))
+            ->max() ?? 0;
+
+        return sprintf('%s-%03d', $prefix, $max + 1);
     }
 }

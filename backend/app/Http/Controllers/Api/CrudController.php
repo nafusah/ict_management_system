@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AppUser;
 use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -52,7 +53,19 @@ abstract class CrudController extends Controller
         $validated = validator($snakeInput, $this->rules())->validate();
 
         $class = $this->modelClass();
-        $item = $class::create($validated);
+        $item = null;
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            try {
+                $item = $class::create($validated);
+                break;
+            } catch (UniqueConstraintViolationException $e) {
+                // طلبان متزامنان حصلا على نفس الرقم؛ نعيد المحاولة برقم جديد
+                if ($attempt === 5) {
+                    throw $e;
+                }
+                usleep(random_int(20_000, 120_000));
+            }
+        }
 
         AuditLog::record(
             $this->currentUser($request),
