@@ -571,10 +571,14 @@ function SubscriptionFormModal({
   }
   const show = (e?: string) => (submitted ? e : undefined)
 
-  const submit = (e: FormEvent) => {
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    if (Object.values(errors).some(Boolean)) return
+    setSaveError(null)
+    if (Object.values(errors).some(Boolean) || saving) return
 
     const data: Omit<Subscription, 'id'> = {
       serviceName: serviceName.trim(),
@@ -590,38 +594,50 @@ function SubscriptionFormModal({
       notes: notes.trim(),
     }
 
-    if (isEdit) {
-      subscriptionsStore.update({ ...data, id: subscription.id })
-      recordAudit('updated', 'subscription', `تعديل اشتراك: ${data.serviceName}`, subscription.id)
-      onSuccess('تم حفظ تعديلات الاشتراك بنجاح')
-    } else {
-      subscriptionsStore.add(data)
-      recordAudit(
-        'created',
-        'subscription',
-        `إضافة اشتراك: ${data.serviceName}${data.serviceLocation ? ` (${data.serviceLocation})` : data.department ? ` (${data.department})` : ''}`,
-      )
-      onSuccess('تمت إضافة الاشتراك بنجاح')
+    setSaving(true)
+    try {
+      if (isEdit) {
+        await subscriptionsStore.updateAsync({ ...data, id: subscription.id })
+        recordAudit('updated', 'subscription', `تعديل اشتراك: ${data.serviceName}`, subscription.id)
+        onSuccess('تم حفظ تعديلات الاشتراك بنجاح')
+      } else {
+        await subscriptionsStore.addAsync(data)
+        recordAudit(
+          'created',
+          'subscription',
+          `إضافة اشتراك: ${data.serviceName}${data.serviceLocation ? ` (${data.serviceLocation})` : data.department ? ` (${data.department})` : ''}`,
+        )
+        onSuccess('تمت إضافة الاشتراك بنجاح')
+      }
+      onClose()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'تعذر حفظ الاشتراك على الخادم.')
+    } finally {
+      setSaving(false)
     }
-    onClose()
   }
 
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={() => !saving && onClose()}
       title={isEdit ? 'تعديل الاشتراك' : 'إضافة اشتراك أو ترخيص جديد'}
       description="سجّل تفاصيل الاشتراك وتاريخ انتهائه لتصلك تنبيهات قبل الانتهاء."
       footer={
         <>
-          <Button onClick={onClose}>إلغاء</Button>
-          <Button variant="primary" type="submit" form="subscription-form">
-            {isEdit ? 'حفظ التعديلات' : 'إضافة الاشتراك'}
+          <Button onClick={onClose} disabled={saving}>إلغاء</Button>
+          <Button variant="primary" type="submit" form="subscription-form" disabled={saving}>
+            {saving ? 'جاري الحفظ...' : isEdit ? 'حفظ التعديلات' : 'إضافة الاشتراك'}
           </Button>
         </>
       }
     >
-      <form id="subscription-form" onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
+      <form id="subscription-form" onSubmit={(e) => void submit(e)} noValidate className="grid gap-4 sm:grid-cols-2">
+        {saveError && (
+          <p className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {saveError}
+          </p>
+        )}
         <Field label="اسم الخدمة / الترخيص" error={show(errors.serviceName)}>
           {(id, d) => (
             <SelectInput

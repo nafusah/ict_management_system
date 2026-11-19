@@ -24,6 +24,13 @@ function save<T>(key: string, items: T[]) {
 const newId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`
 
+function notifySyncError(err: unknown, fallback: string) {
+  const message = err instanceof Error && err.message ? err.message : fallback
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('app:sync-error', { detail: message }))
+  }
+}
+
 export interface CollectionState<T extends { id: string }> {
   items: T[]
   setAll: (next: T[]) => void
@@ -33,6 +40,7 @@ export interface CollectionState<T extends { id: string }> {
   update: (item: T) => void
   updateAsync: (item: T) => Promise<T>
   remove: (id: string) => void
+  removeAsync: (id: string) => Promise<void>
 }
 
 export function createCollection<T extends { id: string }>(
@@ -66,7 +74,10 @@ export function createCollection<T extends { id: string }>(
             .then((created) => {
               commit([created, ...get().items])
             })
-            .catch(() => { })
+            .catch((err) => {
+              notifySyncError(err, 'تعذر حفظ البيانات على الخادم.')
+              void get().hydrate()
+            })
           return
         }
         const tempId = newId(idPrefix)
@@ -92,7 +103,8 @@ export function createCollection<T extends { id: string }>(
             .then((updated) => {
               commit(get().items.map((i) => (i.id === item.id ? updated : i)))
             })
-            .catch(() => {
+            .catch((err) => {
+              notifySyncError(err, 'تعذر حفظ التعديلات على الخادم.')
               void get().hydrate()
             })
         }
@@ -109,8 +121,17 @@ export function createCollection<T extends { id: string }>(
       remove: (id) => {
         commit(get().items.filter((i) => i.id !== id))
         if (apiPath && getStoredToken()) {
-          void request.delete(`${apiPath}/${encodeURIComponent(id)}`).catch(() => { })
+          void request.delete(`${apiPath}/${encodeURIComponent(id)}`).catch((err) => {
+            notifySyncError(err, 'تعذر حذف السجل من الخادم.')
+            void get().hydrate()
+          })
         }
+      },
+      removeAsync: async (id) => {
+        if (apiPath && getStoredToken()) {
+          await request.delete(`${apiPath}/${encodeURIComponent(id)}`)
+        }
+        commit(get().items.filter((i) => i.id !== id))
       },
     }
   })
@@ -125,5 +146,6 @@ export function createCollection<T extends { id: string }>(
     update: (item: T) => useStore.getState().update(item),
     updateAsync: (item: T) => useStore.getState().updateAsync(item),
     remove: (id: string) => useStore.getState().remove(id),
+    removeAsync: (id: string) => useStore.getState().removeAsync(id),
   }
 }

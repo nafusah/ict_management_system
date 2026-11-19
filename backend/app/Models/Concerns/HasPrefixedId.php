@@ -24,6 +24,7 @@ trait HasPrefixedId
         $max = static::query()
             ->withoutGlobalScopes()
             ->where('id', 'like', $prefix.'-%')
+            ->lockForUpdate()
             ->pluck('id')
             ->map(fn (string $id) => (int) preg_replace('/^'.preg_quote($prefix, '/').'-/', '', $id))
             ->max() ?? 0;

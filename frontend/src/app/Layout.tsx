@@ -322,7 +322,17 @@ export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [pwdOpen, setPwdOpen] = useState(false)
   const [pwdToast, setPwdToast] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onSyncError = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail
+      setSyncError(detail || 'تعذر حفظ التغييرات على الخادم.')
+    }
+    window.addEventListener('app:sync-error', onSyncError)
+    return () => window.removeEventListener('app:sync-error', onSyncError)
+  }, [])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -818,6 +828,7 @@ export default function Layout() {
       />
 
       <Toast message={pwdToast} tone="green" onClose={() => setPwdToast(null)} />
+      <Toast message={syncError} tone="red" onClose={() => setSyncError(null)} />
     </div>
   )
 }

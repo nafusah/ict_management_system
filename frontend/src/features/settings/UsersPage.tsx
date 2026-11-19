@@ -277,19 +277,24 @@ export default function Users() {
         user={editing === 'new' ? null : editing}
         open={editing !== null}
         onClose={() => setEditing(null)}
-        onSave={(data) => {
-          if (editing && editing !== 'new') {
-            const updatedUser = { ...data, id: editing.id }
-            usersStore.update(updatedUser)
-            useAuthStore.getState().syncSessionProfile(updatedUser)
-            recordAudit('updated', 'app_user', `تعديل بيانات وصلاحيات المستخدم: ${data.name}`, editing.id)
-            setToast(`تم تحديث بيانات "${data.name}" بنجاح`)
-          } else {
-            usersStore.add(data)
-            recordAudit('created', 'app_user', `إضافة مستخدم: ${data.name} (${data.email})`)
-            setToast(`تمت إضافة المستخدم "${data.name}" بنجاح`)
+        onSave={async (data) => {
+          try {
+            if (editing && editing !== 'new') {
+              const updatedUser = { ...data, id: editing.id }
+              await usersStore.updateAsync(updatedUser)
+              useAuthStore.getState().syncSessionProfile(updatedUser)
+              recordAudit('updated', 'app_user', `تعديل بيانات وصلاحيات المستخدم: ${data.name}`, editing.id)
+              setToast(`تم تحديث بيانات "${data.name}" بنجاح`)
+            } else {
+              await usersStore.addAsync(data)
+              recordAudit('created', 'app_user', `إضافة مستخدم: ${data.name} (${data.email})`)
+              setToast(`تمت إضافة المستخدم "${data.name}" بنجاح`)
+            }
+            setEditing(null)
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'تعذر حفظ بيانات المستخدم على الخادم.'
+            window.dispatchEvent(new CustomEvent('app:sync-error', { detail: msg }))
           }
-          setEditing(null)
         }}
       />
 

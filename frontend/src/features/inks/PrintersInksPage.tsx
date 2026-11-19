@@ -216,7 +216,7 @@ export default function PrintersInksPage() {
           const saved = await savePrinterType(data)
           if (initialInks?.length) {
             for (const draft of initialInks) {
-              inksStore.add({ ...draft, printerTypeId: saved.id })
+              await inksStore.addAsync({ ...draft, printerTypeId: saved.id })
             }
           }
           setAddingPrinter(false)

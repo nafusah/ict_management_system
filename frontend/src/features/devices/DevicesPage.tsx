@@ -367,12 +367,15 @@ export function DeviceForm({
     dept: dept === OTHER && !customDept.trim() ? 'اكتب اسم الإدارة.' : undefined,
     employee: !isShared && employee === OTHER && !customEmployee.trim() ? 'اكتب اسم الموظف.' : undefined,
   }
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const show = (e?: string) => (submitted ? e : undefined)
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    if (Object.values(errors).some(Boolean)) return
+    setSaveError(null)
+    if (Object.values(errors).some(Boolean) || saving) return
     const data = {
       name: name.trim(),
       serialNumber: serial.trim(),
@@ -385,20 +388,27 @@ export function DeviceForm({
       floor: floor.trim(),
       officeNumber: officeNumber.trim(),
     }
-    if (isEdit) {
-      devicesStore.update({ ...data, id: device.id })
-      const custodyChanged = device.employee !== data.employee || device.department !== data.department
-      const msg = custodyChanged
-        ? `تعديل/نقل عهدة الجهاز «${data.name}» من (${device.employee} - ${device.department}) إلى (${data.employee} - ${data.department})`
-        : `تعديل بيانات الجهاز: ${data.name} (${data.serialNumber})`
-      recordAudit('updated', 'device', msg, device.id)
-      onSuccess('تم حفظ التعديلات بنجاح')
-    } else {
-      devicesStore.add(data)
-      recordAudit('created', 'device', `إضافة جهاز: ${data.name} (${data.serialNumber}) — ${data.employee}`)
-      onSuccess('تمت إضافة الجهاز بنجاح')
+    setSaving(true)
+    try {
+      if (isEdit) {
+        await devicesStore.updateAsync({ ...data, id: device.id })
+        const custodyChanged = device.employee !== data.employee || device.department !== data.department
+        const msg = custodyChanged
+          ? `تعديل/نقل عهدة الجهاز «${data.name}» من (${device.employee} - ${device.department}) إلى (${data.employee} - ${data.department})`
+          : `تعديل بيانات الجهاز: ${data.name} (${data.serialNumber})`
+        recordAudit('updated', 'device', msg, device.id)
+        onSuccess('تم حفظ التعديلات بنجاح')
+      } else {
+        await devicesStore.addAsync(data)
+        recordAudit('created', 'device', `إضافة جهاز: ${data.name} (${data.serialNumber}) — ${data.employee}`)
+        onSuccess('تمت إضافة الجهاز بنجاح')
+      }
+      onClose()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'تعذر حفظ بيانات الجهاز على الخادم.')
+    } finally {
+      setSaving(false)
     }
-    onClose()
   }
 
   const opts = (list: string[]) => list.map((v) => ({ value: v, label: v }))
@@ -406,19 +416,24 @@ export function DeviceForm({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={() => !saving && onClose()}
       title={isEdit ? 'تعديل الجهاز' : 'إضافة جهاز'}
       description="الحقول كلها مطلوبة."
       footer={
         <>
-          <Button onClick={onClose}>إلغاء</Button>
-          <Button variant="primary" type="submit" form="device-form">
-            {isEdit ? 'حفظ التعديلات' : 'إضافة الجهاز'}
+          <Button onClick={onClose} disabled={saving}>إلغاء</Button>
+          <Button variant="primary" type="submit" form="device-form" disabled={saving}>
+            {saving ? 'جاري الحفظ...' : isEdit ? 'حفظ التعديلات' : 'إضافة الجهاز'}
           </Button>
         </>
       }
     >
-      <form id="device-form" onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
+      <form id="device-form" onSubmit={(e) => void submit(e)} noValidate className="grid gap-4 sm:grid-cols-2">
+        {saveError && (
+          <p className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {saveError}
+          </p>
+        )}
         <div className="sm:col-span-2">
           <Field label="اسم الجهاز والموديل" error={show(errors.name)}>
             {(id, d) => (

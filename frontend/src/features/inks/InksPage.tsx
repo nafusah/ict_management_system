@@ -385,11 +385,15 @@ export default function Inks({ lockedPrinterTypeId }: { lockedPrinterTypeId?: st
         open={deleting !== null}
         itemName={deleting?.model ?? ''}
         onCancel={() => setDeleting(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleting) {
-            inksStore.remove(deleting.id)
-            recordAudit('deleted', 'ink', `حذف صنف حبر: ${deleting.model}`, deleting.id)
-            setToast(`تم حذف "${deleting.model}" بنجاح`)
+            try {
+              await inksStore.removeAsync(deleting.id)
+              recordAudit('deleted', 'ink', `حذف صنف حبر: ${deleting.model}`, deleting.id)
+              setToast(`تم حذف "${deleting.model}" بنجاح`)
+            } catch (err) {
+              setToast(err instanceof Error ? err.message : 'تعذر حذف صنف الحبر.')
+            }
           }
           setDeleting(null)
         }}
@@ -499,9 +503,16 @@ function InkDetailsModal({
       }
       onSuccess(`تم إنشاء أمر صرف (${parsed} × ${ink.model}) إلى ${targetDesc} بنجاح`)
     } else {
-      inksStore.update({ ...ink, quantity: nextQuantity })
-      recordAudit('restocked', 'ink', `توريد ${parsed} من (${ink.model}) — المتوفر: ${nextQuantity}`, ink.id)
-      onSuccess(`تمت إضافة ${parsed} إلى مخزون (${ink.model}) بنجاح`)
+      setSubmitting(true)
+      try {
+        await inksStore.updateAsync({ ...ink, quantity: nextQuantity })
+        recordAudit('restocked', 'ink', `توريد ${parsed} من (${ink.model}) — المتوفر: ${nextQuantity}`, ink.id)
+        onSuccess(`تمت إضافة ${parsed} إلى مخزون (${ink.model}) بنجاح`)
+      } catch (err) {
+        setTxError(err instanceof Error ? err.message : 'تعذر تحديث مخزون الحبر.')
+      } finally {
+        setSubmitting(false)
+      }
     }
   }
 
@@ -585,106 +596,106 @@ function InkDetailsModal({
 
         {/* قسم صرف أو إضافة الأحبار */}
         {canManage && (
-        <form onSubmit={handleTransaction} noValidate className="rounded-xl border border-slate-200 p-4">
-          <fieldset>
-            <legend className="mb-3 text-sm font-bold text-slate-900">عملية على المخزون</legend>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setMode('dispense')}
-                className={cx(
-                  'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
-                  mode === 'dispense'
-                    ? 'border-slate-900 bg-slate-900 font-bold text-white'
-                    : 'border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50',
-                )}
-              >
-                <ArrowUpFromLine className="size-4" />
-                صرف من المخزون
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('restock')}
-                className={cx(
-                  'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
-                  mode === 'restock'
-                    ? 'border-slate-900 bg-slate-900 font-bold text-white'
-                    : 'border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50',
-                )}
-              >
-                <ArrowDownToLine className="size-4" />
-                إضافة إلى المخزون
-              </button>
-            </div>
-          </fieldset>
-
-          {mode === 'dispense' && (
-            <div className="mt-4">
-              <DispenseRecipientFields
-                value={recipient}
-                onChange={setRecipient}
-                radioName="ink-detail-scope"
-                allowEmployeeEmail
-              />
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label htmlFor="tx-amount" className="mb-1.5 block text-sm font-medium text-slate-700">
-                {mode === 'dispense' ? 'الكمية المراد صرفها' : 'الكمية المراد إضافتها'}
-              </label>
-              <div className="flex items-center gap-2">
-                <IconButton
-                  label="إنقاص واحد"
-                  className="size-10 shrink-0 border border-slate-300"
-                  disabled={!validNumber || parsed <= 1}
-                  onClick={() => stepAmount(-1)}
+          <form onSubmit={handleTransaction} noValidate className="rounded-xl border border-slate-200 p-4">
+            <fieldset>
+              <legend className="mb-3 text-sm font-bold text-slate-900">عملية على المخزون</legend>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setMode('dispense')}
+                  className={cx(
+                    'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                    mode === 'dispense'
+                      ? 'border-slate-900 bg-slate-900 font-bold text-white'
+                      : 'border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50',
+                  )}
                 >
-                  <Minus className="size-4" />
-                </IconButton>
-                <TextInput
-                  id="tx-amount"
-                  inputMode="numeric"
-                  className="text-center text-base font-bold tabular-nums"
-                  value={amountStr}
-                  onChange={(e) => setAmountStr(e.target.value)}
-                />
-                <IconButton
-                  label="زيادة واحد"
-                  className="size-10 shrink-0 border border-slate-300"
-                  disabled={mode === 'dispense' && validNumber && parsed >= ink.quantity}
-                  onClick={() => stepAmount(1)}
+                  <ArrowUpFromLine className="size-4" />
+                  صرف من المخزون
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('restock')}
+                  className={cx(
+                    'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                    mode === 'restock'
+                      ? 'border-slate-900 bg-slate-900 font-bold text-white'
+                      : 'border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50',
+                  )}
                 >
-                  <Plus className="size-4" />
-                </IconButton>
+                  <ArrowDownToLine className="size-4" />
+                  إضافة إلى المخزون
+                </button>
               </div>
+            </fieldset>
+
+            {mode === 'dispense' && (
+              <div className="mt-4">
+                <DispenseRecipientFields
+                  value={recipient}
+                  onChange={setRecipient}
+                  radioName="ink-detail-scope"
+                  allowEmployeeEmail
+                />
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label htmlFor="tx-amount" className="mb-1.5 block text-sm font-medium text-slate-700">
+                  {mode === 'dispense' ? 'الكمية المراد صرفها' : 'الكمية المراد إضافتها'}
+                </label>
+                <div className="flex items-center gap-2">
+                  <IconButton
+                    label="إنقاص واحد"
+                    className="size-10 shrink-0 border border-slate-300"
+                    disabled={!validNumber || parsed <= 1}
+                    onClick={() => stepAmount(-1)}
+                  >
+                    <Minus className="size-4" />
+                  </IconButton>
+                  <TextInput
+                    id="tx-amount"
+                    inputMode="numeric"
+                    className="text-center text-base font-bold tabular-nums"
+                    value={amountStr}
+                    onChange={(e) => setAmountStr(e.target.value)}
+                  />
+                  <IconButton
+                    label="زيادة واحد"
+                    className="size-10 shrink-0 border border-slate-300"
+                    disabled={mode === 'dispense' && validNumber && parsed >= ink.quantity}
+                    onClick={() => stepAmount(1)}
+                  >
+                    <Plus className="size-4" />
+                  </IconButton>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={!canSubmit}
+                className="w-full sm:w-auto sm:min-w-40"
+              >
+                {mode === 'dispense' ? 'تأكيد الصرف' : 'تأكيد الإضافة'}
+              </Button>
             </div>
 
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={!canSubmit}
-              className="w-full sm:w-auto sm:min-w-40"
-            >
-              {mode === 'dispense' ? 'تأكيد الصرف' : 'تأكيد الإضافة'}
-            </Button>
-          </div>
-
-          {mode === 'dispense' && ink.quantity === 0 && (
-            <p className="mt-2.5 text-xs font-medium text-red-700">
-              المخزون الحالي صفر؛ لا يمكن صرف خراطيش قبل إضافة كمية جديدة.
-            </p>
-          )}
-          {exceedsStock && ink.quantity > 0 && (
-            <p className="mt-2.5 text-xs font-medium text-red-700">
-              الكمية المطلوبة ({parsed}) أكبر من المتوفر في المخزون ({ink.quantity}).
-            </p>
-          )}
-          {txError && (
-            <p className="mt-2.5 text-xs font-medium text-red-700">{txError}</p>
-          )}
-        </form>
+            {mode === 'dispense' && ink.quantity === 0 && (
+              <p className="mt-2.5 text-xs font-medium text-red-700">
+                المخزون الحالي صفر؛ لا يمكن صرف خراطيش قبل إضافة كمية جديدة.
+              </p>
+            )}
+            {exceedsStock && ink.quantity > 0 && (
+              <p className="mt-2.5 text-xs font-medium text-red-700">
+                الكمية المطلوبة ({parsed}) أكبر من المتوفر في المخزون ({ink.quantity}).
+              </p>
+            )}
+            {txError && (
+              <p className="mt-2.5 text-xs font-medium text-red-700">{txError}</p>
+            )}
+          </form>
         )}
 
         {inkDispenses.length > 0 && (
