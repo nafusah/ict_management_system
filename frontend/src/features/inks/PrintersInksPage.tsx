@@ -194,7 +194,7 @@ export default function PrintersInksPage() {
 
                     {canViewInks && (
                       <Link
-                        to={`/inks?printerType=${pt.id}`}
+                        to={`/inks/printers/${pt.id}`}
                         className="mt-3 block rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
                       >
                         إدارة أحبار الطابعة ←

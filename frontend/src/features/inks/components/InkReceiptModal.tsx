@@ -43,11 +43,17 @@ function parseDateParts(dateStr: string): { year: string; month: string; day1: s
   return { year: y, month: mo, day1: d[0], day2: d[1] }
 }
 
-function NafusahFlameSvg({ className }: { className?: string }) {
+function NafusahFlameSvg({ className, colored = false }: { className?: string; colored?: boolean }) {
   return (
     <svg className={className} viewBox="304 0 78 89" aria-hidden="true">
-      <path d="M350.622,1.627 C342.084,40.893 401.711,49.99 349.868,87.373 C355.865,57.449 349.922,58.045 342.084,46.309 C328.252,25.597 348.752,8.104 350.622,1.627 z" />
-      <path d="M323.194,28.282 C298.842,53.708 309.397,78.468 333.91,87.357 C349.583,60.956 321.311,61.744 323.194,28.282 z" />
+      <path
+        fill={colored ? '#242120' : undefined}
+        d="M350.622,1.627 C342.084,40.893 401.711,49.99 349.868,87.373 C355.865,57.449 349.922,58.045 342.084,46.309 C328.252,25.597 348.752,8.104 350.622,1.627 z"
+      />
+      <path
+        fill={colored ? '#FEC400' : undefined}
+        d="M323.194,28.282 C298.842,53.708 309.397,78.468 333.91,87.357 C349.583,60.956 321.311,61.744 323.194,28.282 z"
+      />
     </svg>
   )
 }
@@ -136,6 +142,11 @@ function openInkReceiptPrintWindow(receipt: InkReceiptData) {
     `,
     )
     .join('')
+
+  const coloredFlamePaths = `
+    <path fill="#242120" d="M350.622,1.627 C342.084,40.893 401.711,49.99 349.868,87.373 C355.865,57.449 349.922,58.045 342.084,46.309 C328.252,25.597 348.752,8.104 350.622,1.627 z"/>
+    <path fill="#FEC400" d="M323.194,28.282 C298.842,53.708 309.397,78.468 333.91,87.357 C349.583,60.956 321.311,61.744 323.194,28.282 z"/>
+  `
 
   const flamePaths = `
     <path d="M350.622,1.627 C342.084,40.893 401.711,49.99 349.868,87.373 C355.865,57.449 349.922,58.045 342.084,46.309 C328.252,25.597 348.752,8.104 350.622,1.627 z"/>
@@ -295,7 +306,7 @@ function openInkReceiptPrintWindow(receipt: InkReceiptData) {
   <div class="sheet">
     <div class="header">
       <div class="brand">
-        <svg width="42" height="48" viewBox="304 0 78 89" style="fill:#0f172a;">${flamePaths}</svg>
+        <svg width="42" height="48" viewBox="304 0 78 89">${coloredFlamePaths}</svg>
         <div>
           <h1>شركة نفوسة للعمليات النفطية بي.في</h1>
           <p>إدارة الإتصالات وتقنية المعلومات — نظام إدارة أصول تقنية المعلومات</p>
@@ -415,7 +426,7 @@ export function InkReceiptModal({
       <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-slate-900 pb-3">
           <div className="flex items-center gap-3">
-            <NafusahFlameSvg className="h-10 w-9 fill-slate-900" />
+            <NafusahFlameSvg className="h-10 w-9" colored />
             <div>
               <h3 className="text-base font-extrabold text-slate-900">شركة نفوسة للعمليات النفطية بي.في</h3>
               <p className="text-xs text-slate-500">إدارة الإتصالات وتقنية المعلومات</p>

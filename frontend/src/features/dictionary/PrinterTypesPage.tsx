@@ -128,7 +128,7 @@ export default function PrinterTypes() {
         onSave={async (data, initialInks) => {
           const isEdit = editing && editing !== 'new'
           const saved = await savePrinterType(data, isEdit ? editing.id : undefined)
-          if (!isEdit && initialInks?.length) {
+          if (initialInks?.length) {
             for (const draft of initialInks) {
               inksStore.add({ ...draft, printerTypeId: saved.id })
             }
@@ -136,7 +136,9 @@ export default function PrinterTypes() {
           setEditing(null)
           setToast({
             message: isEdit
-              ? 'تم حفظ تعديلات الطابعة بنجاح'
+              ? initialInks?.length
+                ? `تم حفظ تعديلات الطابعة وإضافة ${initialInks.length} أصناف حبر بنجاح`
+                : 'تم حفظ تعديلات الطابعة بنجاح'
               : initialInks?.length
                 ? `تمت إضافة الطابعة و${initialInks.length} أصناف حبر مرتبطة بها بنجاح`
                 : 'تمت إضافة الطابعة بنجاح',

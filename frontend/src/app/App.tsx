@@ -12,6 +12,7 @@ import InkColors from '../features/dictionary/InkColorsPage'
 import PrinterTypes from '../features/dictionary/PrinterTypesPage'
 import Inks from '../features/inks/InksPage'
 import InkVouchersPage from '../features/inks/InkVouchersPage'
+import PrinterInksDetailPage from '../features/inks/PrinterInksDetailPage'
 import PrintersInksPage from '../features/inks/PrintersInksPage'
 import ServicesSettings from '../features/dictionary/ServicesSettingsPage'
 import AuditLogs from '../features/settings/AuditLogsPage'
@@ -123,6 +124,14 @@ export default function App() {
             element={
               <RequirePermission allow={['dashboard.inks', 'inks.view', 'inks.manage']}>
                 <PrintersInksPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="inks/printers/:id"
+            element={
+              <RequirePermission allow={['dashboard.inks', 'inks.view', 'inks.manage']}>
+                <PrinterInksDetailPage />
               </RequirePermission>
             }
           />

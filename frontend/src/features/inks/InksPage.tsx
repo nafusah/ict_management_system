@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ArrowDownToLine, ArrowUpFromLine, Minus, Pencil, Plus, Printer, Trash2 } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, Minus, Pencil, Plus, Printer, Trash2 } from 'lucide-react'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import {
   Button,
@@ -15,7 +15,6 @@ import {
   Pill,
   SearchInput,
   SearchableSelect,
-  SelectInput,
   TextInput,
   Toast,
   cx,
@@ -55,13 +54,14 @@ function Swatch({ meta }: { meta: InkColorItem }) {
   )
 }
 
-export default function Inks() {
+export default function Inks({ lockedPrinterTypeId }: { lockedPrinterTypeId?: string } = {}) {
   const canManage = usePermission('inks.manage')
   const inks = useInks()
   const inkColors = useInkColors()
   const printerTypes = usePrinterTypes()
   const colorMap = useMemo(() => Object.fromEntries(inkColors.map((c) => [c.id, c])), [inkColors])
   const printerTypeMap = useMemo(() => Object.fromEntries(printerTypes.map((p) => [p.id, p])), [printerTypes])
+  const lockedPrinter = lockedPrinterTypeId ? printerTypeMap[lockedPrinterTypeId] : undefined
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -76,7 +76,11 @@ export default function Inks() {
   const colorParam = params.get('color')
   const colorFilter = colorParam && colorParam in colorMap ? colorParam : null
   const printerParam = params.get('printerType')
-  const printerFilter = printerParam && printerParam in printerTypeMap ? printerParam : null
+  const printerFilter = lockedPrinterTypeId
+    ? lockedPrinterTypeId
+    : printerParam && printerParam in printerTypeMap
+      ? printerParam
+      : null
   const lowOnly = params.get('low') === '1'
 
   const setFilter = (key: string, value: string | null) => {
@@ -103,31 +107,93 @@ export default function Inks() {
     })
   }, [inks, query, colorFilter, printerFilter, lowOnly, colorMap, printerTypeMap])
 
-  const lowCount = inks.filter(isLowStock).length
+  const scopedInks = useMemo(
+    () => (lockedPrinterTypeId ? inks.filter((i) => i.printerTypeId === lockedPrinterTypeId) : inks),
+    [inks, lockedPrinterTypeId],
+  )
+  const lowCount = scopedInks.filter(isLowStock).length
+  const totalCartridges = scopedInks.reduce((sum, i) => sum + i.quantity, 0)
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, pageCount)
   const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
 
   return (
     <>
-      <PageHeader
-        title="مخزون الأحبار"
-        description="تصنيف كميات خراطيش الأحبار حسب نوع الطابعة، مع تنبيه عند وصول أي صنف إلى حد الطلب."
-        action={
-          canManage ? (
+      {lockedPrinterTypeId && (
+        <div className="mb-4">
+          <Link
+            to="/inks/printers"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 transition-colors hover:text-slate-900"
+          >
+            <ArrowRight className="size-3.5" />
+            العودة إلى الطابعات والأحبار
+          </Link>
+        </div>
+      )}
+
+      {lockedPrinter && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-3.5">
+            {lockedPrinter.image ? (
+              <img
+                src={lockedPrinter.image}
+                alt={lockedPrinter.name}
+                className="size-16 shrink-0 rounded-xl border border-slate-200 bg-slate-50 object-contain p-1"
+              />
+            ) : (
+              <span className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                <Printer className="size-7" />
+              </span>
+            )}
+            <div>
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                أحبار الطابعة فقط (عرض مخصص)
+              </span>
+              <h1 className="mt-1 text-lg font-extrabold text-slate-900">
+                <bdi>{lockedPrinter.name}</bdi>
+              </h1>
+              <p className="text-xs text-slate-500">
+                {lockedPrinter.brand ? `${lockedPrinter.brand} • ` : ''}
+                {scopedInks.length} صنف حبر • {totalCartridges} خرطوشة متوفرة
+              </p>
+            </div>
+          </div>
+
+          {canManage && (
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={() => setBatchOpen(true)}>
+              <Button variant="secondary" onClick={() => setBatchOpen(true)} disabled={totalCartridges === 0}>
                 <ArrowUpFromLine className="size-4" />
-                صرف لإدارة
+                صرف من أحبار الطابعة
               </Button>
               <Button variant="primary" onClick={() => setEditing('new')}>
                 <Plus className="size-4" />
-                إضافة صنف حبر
+                إضافة حبر للطابعة
               </Button>
             </div>
-          ) : undefined
-        }
-      />
+          )}
+        </div>
+      )}
+
+      {!lockedPrinterTypeId && (
+        <PageHeader
+          title="مخزون الأحبار"
+          description="تصنيف كميات خراطيش الأحبار حسب نوع الطابعة، مع تنبيه عند وصول أي صنف إلى حد الطلب."
+          action={
+            canManage ? (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setBatchOpen(true)}>
+                  <ArrowUpFromLine className="size-4" />
+                  صرف لإدارة
+                </Button>
+                <Button variant="primary" onClick={() => setEditing('new')}>
+                  <Plus className="size-4" />
+                  إضافة صنف حبر
+                </Button>
+              </div>
+            ) : undefined
+          }
+        />
+      )}
 
       <div className="mb-4 flex flex-col gap-3">
         <SearchInput
@@ -136,9 +202,9 @@ export default function Inks() {
             setQuery(v)
             setPage(1)
           }}
-          placeholder="ابحث بالموديل أو نوع الطابعة أو الماركة أو اللون"
+          placeholder={lockedPrinterTypeId ? 'ابحث في أحبار هذه الطابعة بالموديل أو اللون...' : 'ابحث بالموديل أو نوع الطابعة أو الماركة أو اللون'}
         />
-        {printerTypes.length > 0 && (
+        {!lockedPrinterTypeId && printerTypes.length > 0 && (
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label="تصفية حسب نوع الطابعة">
             <FilterChip active={!printerFilter} onClick={() => setFilter('printerType', null)}>
               كل الطابعات
@@ -308,6 +374,7 @@ export default function Inks() {
         <InkForm
           ink={editing === 'new' ? null : editing}
           defaultPrinterTypeId={printerFilter ?? ''}
+          lockPrinterType={Boolean(lockedPrinterTypeId)}
           onClose={() => setEditing(null)}
           onSuccess={(msg) => setToast(msg)}
         />
@@ -329,6 +396,7 @@ export default function Inks() {
 
       {batchOpen && (
         <BatchDispenseModal
+          lockedPrinterTypeId={lockedPrinterTypeId}
           onClose={() => setBatchOpen(false)}
           onSuccess={(msg) => {
             setBatchOpen(false)
@@ -672,11 +740,13 @@ function InkDetailsModal({
 function InkForm({
   ink,
   defaultPrinterTypeId = '',
+  lockPrinterType = false,
   onClose,
   onSuccess,
 }: {
   ink: Ink | null
   defaultPrinterTypeId?: string
+  lockPrinterType?: boolean
   onClose: () => void
   onSuccess: (msg: string) => void
 }) {
@@ -688,27 +758,27 @@ function InkForm({
     [brands],
   )
   const printerOptions = useMemo(
-    () => [
-      { value: '', label: '— غير مربوط بطابعة محددة —' },
-      ...printerTypes.map((p) => ({ value: p.id, label: p.brand ? `${p.name} (${p.brand})` : p.name })),
-    ],
+    () => printerTypes.map((p) => ({ value: p.id, label: p.brand ? `${p.name} (${p.brand})` : p.name })),
     [printerTypes],
   )
   const isEdit = ink !== null
-  const defaultPrinter = defaultPrinterTypeId ? printerTypes.find((p) => p.id === defaultPrinterTypeId) : undefined
-  const initialBrand =
-    ink?.brand ?? (defaultPrinter?.brand && brandOptions.includes(defaultPrinter.brand) ? defaultPrinter.brand : brandOptions[0])
-  const knownBrand = !ink || brandOptions.includes(ink.brand)
+  const initialPrinterId = ink?.printerTypeId ?? (defaultPrinterTypeId || printerTypes[0]?.id || '')
+  const [printerTypeId, setPrinterTypeId] = useState(initialPrinterId)
+  const selectedPrinter = useMemo(
+    () => printerTypes.find((p) => p.id === printerTypeId),
+    [printerTypes, printerTypeId],
+  )
 
-  const [brand, setBrand] = useState(ink ? (knownBrand ? ink.brand : OTHER) : initialBrand)
-  const [customBrand, setCustomBrand] = useState(ink && !knownBrand ? ink.brand : '')
   const [model, setModel] = useState(ink?.model ?? '')
-  const [printerTypeId, setPrinterTypeId] = useState(ink?.printerTypeId ?? defaultPrinterTypeId)
   const [color, setColor] = useState<InkColor>(ink?.color ?? inkColors[0]?.id ?? 'black')
   const [quantity, setQuantity] = useState(String(ink?.quantity ?? ''))
   const [threshold, setThreshold] = useState(String(ink?.alertThreshold ?? ''))
   const [colorRows, setColorRows] = useState<ColorInkRow[]>(() => [
-    { color: ink?.color ?? inkColors[0]?.id ?? 'black', model: ink?.model ?? '', quantity: String(ink?.quantity ?? '') },
+    {
+      color: ink?.color ?? inkColors[0]?.id ?? 'black',
+      model: ink?.model ?? '',
+      quantity: String(ink?.quantity ?? ''),
+    },
   ])
   const [submitted, setSubmitted] = useState(false)
 
@@ -728,18 +798,16 @@ function InkForm({
 
   const isMultiColor = !isEdit && colorRows.length > 1
   const isCount = (v: string) => /^\d+$/.test(v.trim())
-  const multiRowError = isMultiColor
-    ? colorRows.some((r) => !(r.model.trim() || model.trim()))
-      ? 'يرجى كتابة موديل الحبر لكل لون محدد.'
-      : colorRows.some((r) => !isCount(r.quantity || quantity))
-        ? 'يرجى كتابة كمية صحيحة لكل لون محدد.'
-        : undefined
+  const multiRowError = !isEdit
+    ? colorRows.some((r) => !(r.model || model).trim() || !isCount(r.quantity || quantity))
+      ? 'يرجى التأكد من كتابة الموديل والكمية لكل لون محدد.'
+      : undefined
     : undefined
 
   const errors = {
-    brand: brand === OTHER && !customBrand.trim() ? 'اكتب اسم الماركة.' : undefined,
-    model: !isMultiColor && !model.trim() ? 'اكتب موديل الحبر.' : undefined,
-    quantity: !isMultiColor && !isCount(quantity) ? 'اكتب الكمية رقمًا صحيحًا، مثل 12.' : undefined,
+    printer: !selectedPrinter && !ink ? 'يرجى اختيار نوع الطابعة.' : undefined,
+    model: !model.trim() && (isEdit || colorRows.some((r) => !r.model.trim())) ? 'اكتب الموديل الرئيسي للحبر، مثل 222A.' : undefined,
+    quantity: !isMultiColor && !isCount(colorRows[0]?.quantity || quantity) ? 'اكتب الكمية رقمًا صحيحًا، مثل 12.' : undefined,
     threshold: !isCount(threshold) ? 'اكتب حد الطلب رقمًا صحيحًا، مثل 5.' : undefined,
     colors: multiRowError,
   }
@@ -749,14 +817,15 @@ function InkForm({
     e.preventDefault()
     setSubmitted(true)
     if (Object.values(errors).some(Boolean)) return
-    const resolvedBrand = brand === OTHER ? customBrand.trim() : brand
+    const resolvedBrand = selectedPrinter?.brand || ink?.brand || brandOptions[0] || 'HP'
+    const resolvedModel = model.trim()
     const resolvedPrinterId = printerTypeId || null
     const resolvedThreshold = Number(threshold)
 
     if (isEdit) {
       const data = {
         brand: resolvedBrand,
-        model: model.trim(),
+        model: resolvedModel,
         color,
         printerTypeId: resolvedPrinterId,
         quantity: Number(quantity),
@@ -767,7 +836,7 @@ function InkForm({
       onSuccess('تم حفظ تعديلات الحبر بنجاح')
     } else if (colorRows.length > 1) {
       for (const row of colorRows) {
-        const rowModel = (row.model.trim() || model.trim())
+        const rowModel = (row.model || resolvedModel).trim()
         const rowQty = Number((row.quantity || quantity).trim())
         inksStore.add({
           brand: resolvedBrand,
@@ -778,16 +847,19 @@ function InkForm({
           alertThreshold: resolvedThreshold,
         })
       }
-      recordAudit('created', 'ink', `إضافة طقم أحبار (${colorRows.length} ألوان): ${model.trim() || colorRows[0].model}`)
+      recordAudit('created', 'ink', `إضافة طقم أحبار (${colorRows.length} ألوان): ${resolvedModel || colorRows[0]?.model}`)
       onSuccess(`تمت إضافة ${colorRows.length} أصناف حبر بنجاح`)
     } else {
-      const onlyColor = colorRows[0]?.color ?? color
+      const onlyRow = colorRows[0]
+      const onlyColor = onlyRow?.color ?? color
+      const onlyModel = (onlyRow?.model || resolvedModel).trim()
+      const onlyQty = Number((onlyRow?.quantity || quantity).trim())
       const data = {
         brand: resolvedBrand,
-        model: model.trim(),
+        model: onlyModel,
         color: onlyColor,
         printerTypeId: resolvedPrinterId,
-        quantity: Number(quantity),
+        quantity: onlyQty,
         alertThreshold: resolvedThreshold,
       }
       inksStore.add(data)
@@ -802,7 +874,7 @@ function InkForm({
       open
       onClose={onClose}
       title={isEdit ? 'تعديل صنف الحبر' : 'إضافة صنف حبر'}
-      description="عندما تصل الكمية إلى حد الطلب أو أقل، يظهر الصنف تحت حد الطلب في المخزون ولوحة التحكم."
+      description="يتم جلب الماركة تلقائياً من نوع الطابعة المختارة مع إدخال موديل الحبر لمرة واحدة."
       footer={
         <>
           <Button onClick={onClose}>إلغاء</Button>
@@ -813,58 +885,47 @@ function InkForm({
       }
     >
       <form id="ink-form" onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-        <Field label="الماركة">
-          {(id) => (
-            <SelectInput
-              id={id}
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              options={brandOptions.map((b) => ({ value: b, label: b }))}
-            />
-          )}
-        </Field>
-
-        <Field label="الموديل" error={show(errors.model)}>
-          {(id, d) => (
-            <TextInput
-              id={id}
-              dir="ltr"
-              className="text-right"
-              aria-describedby={d}
-              aria-invalid={!!show(errors.model)}
-              value={model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              placeholder="مثال: HP 222A"
-              autoFocus
-            />
-          )}
-        </Field>
-
-        {brand === OTHER && (
-          <div className="sm:col-span-2">
-            <Field label="اسم الماركة" error={show(errors.brand)}>
-              {(id, d) => (
-                <TextInput
+        <div className="sm:col-span-2">
+          {lockPrinterType && selectedPrinter ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm">
+              <span className="block text-xs text-slate-500">نوع الطابعة (مثبّت تلقائياً)</span>
+              <span className="mt-0.5 flex items-center gap-1.5 font-bold text-slate-900">
+                <Printer className="size-4 text-slate-600" />
+                <bdi>{selectedPrinter.name}</bdi>
+                {selectedPrinter.brand && <span className="font-normal text-slate-500">({selectedPrinter.brand})</span>}
+              </span>
+            </div>
+          ) : (
+            <Field label="نوع الطابعة" hint="يتم اعتماد الماركة من الطابعة المختارة تلقائياً" error={show(errors.printer)}>
+              {(id) => (
+                <SearchableSelect
                   id={id}
-                  aria-describedby={d}
-                  aria-invalid={!!show(errors.brand)}
-                  value={customBrand}
-                  onChange={(e) => setCustomBrand(e.target.value)}
+                  value={printerTypeId}
+                  onChange={setPrinterTypeId}
+                  options={printerOptions}
+                  searchPlaceholder="ابحث عن نوع الطابعة..."
                 />
               )}
             </Field>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="sm:col-span-2">
-          <Field label="نوع الطابعة المرتبطة" hint="اختر الطابعة التي يستخدمها هذا الحبر">
-            {(id) => (
-              <SearchableSelect
+          <Field
+            label={isEdit ? 'موديل الحبر' : 'الموديل الرئيسي للحبر'}
+            hint={!isEdit ? 'ينزل تلقائياً في الموديل الفرعي لكل لون بالأسفل ويمكنك تعديل كل لون حسب رغبتك' : undefined}
+            error={show(errors.model)}
+          >
+            {(id, desc) => (
+              <TextInput
                 id={id}
-                value={printerTypeId}
-                onChange={setPrinterTypeId}
-                options={printerOptions}
-                searchPlaceholder="ابحث عن نوع الطابعة..."
+                dir="ltr"
+                className="text-right"
+                aria-invalid={Boolean(show(errors.model))}
+                aria-describedby={desc}
+                placeholder="مثال: 222A"
+                value={model}
+                onChange={(e) => handleModelChange(e.target.value)}
               />
             )}
           </Field>
@@ -947,9 +1008,11 @@ function InkForm({
 }
 
 function BatchDispenseModal({
+  lockedPrinterTypeId,
   onClose,
   onSuccess,
 }: {
+  lockedPrinterTypeId?: string
   onClose: () => void
   onSuccess: (msg: string) => void
 }) {
@@ -957,7 +1020,13 @@ function BatchDispenseModal({
   const departments = useDepartments()
   const employees = useEmployees()
   const inkColors = useInkColors()
-  const availableInks = useMemo(() => inks.filter((i) => i.quantity > 0), [inks])
+  const availableInks = useMemo(
+    () =>
+      inks.filter(
+        (i) => i.quantity > 0 && (!lockedPrinterTypeId || i.printerTypeId === lockedPrinterTypeId),
+      ),
+    [inks, lockedPrinterTypeId],
+  )
 
   const [recipient, setRecipient] = useState(() => createInitialRecipientState(departments, employees, 'shared'))
   const [rows, setRows] = useState<{ key: number; inkId: string; quantity: string }[]>(() => [

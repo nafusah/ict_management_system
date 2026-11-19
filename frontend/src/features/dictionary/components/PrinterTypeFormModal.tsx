@@ -137,7 +137,7 @@ export function PrinterTypeFormModal({
     }
 
     let initialInks: Omit<Ink, 'id' | 'printerTypeId'>[] | undefined
-    if (!item && createInks) {
+    if (createInks) {
       const isCount = (v: string) => /^\d+$/.test(v.trim())
       if (colorRows.length === 0) {
         setInkError('يرجى اختيار لون واحد على الأقل.')
@@ -149,10 +149,10 @@ export function PrinterTypeFormModal({
       }
       const drafts: Omit<Ink, 'id' | 'printerTypeId'>[] = []
       for (const row of colorRows) {
-        const resolvedModel = (row.model.trim() || inkModel.trim())
+        const resolvedModel = (row.model || inkModel).trim()
         const resolvedQtyStr = (row.quantity || inkQuantity).trim()
         if (!resolvedModel) {
-          setInkError('يرجى إدخال موديل الحبر (مثل 222A).')
+          setInkError('يرجى إدخال الموديل الرئيسي أو الفرعي لكل لون.')
           return
         }
         if (!isCount(resolvedQtyStr)) {
@@ -193,7 +193,7 @@ export function PrinterTypeFormModal({
     <Modal
       open={open}
       onClose={() => !submitting && onClose()}
-      size={!item && createInks ? 'md' : 'sm'}
+      size={createInks ? 'md' : 'sm'}
       title={item ? `تعديل نوع الطابعة: ${item.name}` : 'إضافة نوع طابعة جديد'}
       description="أدخل اسم أو موديل الطابعة وأرفق صورتها (اختياري) ليظهر لجميع المستخدمين في صفحة الطابعات والأحبار."
       footer={
@@ -284,74 +284,72 @@ export function PrinterTypeFormModal({
           )}
         </Field>
 
-        {!item && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
-            <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-900">
-              <input
-                type="checkbox"
-                checked={createInks}
-                onChange={(e) => {
-                  setCreateInks(e.target.checked)
-                  setInkError(undefined)
-                }}
-                className="accent-slate-900"
-              />
-              إنشاء أحبار هذه الطابعة الآن (اختياري)
-            </label>
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-900">
+            <input
+              type="checkbox"
+              checked={createInks}
+              onChange={(e) => {
+                setCreateInks(e.target.checked)
+                setInkError(undefined)
+              }}
+              className="accent-slate-900"
+            />
+            {item ? 'إضافة أحبار جديدة لهذه الطابعة (اختياري)' : 'إنشاء أحبار هذه الطابعة الآن (اختياري)'}
+          </label>
 
-            {createInks && (
-              <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <Field label="موديل الحبر الأساسي">
-                    {(id) => (
-                      <TextInput
-                        id={id}
-                        dir="ltr"
-                        className="text-right"
-                        placeholder="مثال: 222A"
-                        value={inkModel}
-                        onChange={(e) => handleInkModelChange(e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <Field label="الكمية لكل لون">
-                    {(id) => (
-                      <TextInput
-                        id={id}
-                        type="number"
-                        min={0}
-                        dir="ltr"
-                        value={inkQuantity}
-                        onChange={(e) => handleInkQuantityChange(e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <Field label="حد التنبيه">
-                    {(id) => (
-                      <TextInput
-                        id={id}
-                        type="number"
-                        min={0}
-                        dir="ltr"
-                        value={inkThreshold}
-                        onChange={(e) => setInkThreshold(e.target.value)}
-                      />
-                    )}
-                  </Field>
-                </div>
-
-                <InkColorSetSelector
-                  inkColors={inkColors}
-                  rows={colorRows}
-                  baseModel={inkModel}
-                  baseQuantity={inkQuantity}
-                  onChange={setColorRows}
-                  error={inkError}
-                />
+          {createInks && (
+            <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="الموديل الرئيسي للحبر">
+                  {(id) => (
+                    <TextInput
+                      id={id}
+                      dir="ltr"
+                      className="text-right"
+                      placeholder="مثال: 222A"
+                      value={inkModel}
+                      onChange={(e) => handleInkModelChange(e.target.value)}
+                    />
+                  )}
+                </Field>
+                <Field label="الكمية لكل لون">
+                  {(id) => (
+                    <TextInput
+                      id={id}
+                      type="number"
+                      min={0}
+                      dir="ltr"
+                      value={inkQuantity}
+                      onChange={(e) => handleInkQuantityChange(e.target.value)}
+                    />
+                  )}
+                </Field>
+                <Field label="حد التنبيه">
+                  {(id) => (
+                    <TextInput
+                      id={id}
+                      type="number"
+                      min={0}
+                      dir="ltr"
+                      value={inkThreshold}
+                      onChange={(e) => setInkThreshold(e.target.value)}
+                    />
+                  )}
+                </Field>
               </div>
-            )}
-          </div>
-        )}
+
+              <InkColorSetSelector
+                inkColors={inkColors}
+                rows={colorRows}
+                baseModel={inkModel}
+                baseQuantity={inkQuantity}
+                onChange={setColorRows}
+                error={inkError}
+              />
+            </div>
+          )}
+        </div>
       </form>
     </Modal>
   )

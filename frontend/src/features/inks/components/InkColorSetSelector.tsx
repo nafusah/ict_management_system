@@ -133,16 +133,21 @@ export function InkColorSetSelector({
         })}
       </div>
 
-      {rows.length > 1 && (
+      {rows.length > 0 && (
         <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-          <p className="mb-2 text-xs font-semibold text-slate-600">
-            تخصيص الموديل والكمية لكل لون (يُترك نفس الموديل أو يُعدّل لكل لون):
-          </p>
+          <div className="mb-2 grid grid-cols-[minmax(80px,110px)_1fr_80px] items-center gap-2 px-1 text-[11px] font-semibold text-slate-500">
+            <span>اللون</span>
+            <span>الموديل الفرعي (يجلب الرئيسي تلقائياً ويمكنك تعديله)</span>
+            <span className="text-center">الكمية</span>
+          </div>
           <div className="space-y-2">
             {rows.map((row) => {
               const colorMeta = inkColors.find((c) => c.id === row.color)
               return (
-                <div key={row.color} className="grid grid-cols-[100px_1fr_84px] items-center gap-2">
+                <div
+                  key={row.color}
+                  className="grid grid-cols-[minmax(80px,110px)_1fr_80px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5"
+                >
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                     <span
                       aria-hidden="true"
@@ -153,17 +158,17 @@ export function InkColorSetSelector({
                   </div>
                   <TextInput
                     dir="ltr"
-                    className="h-9 text-right text-xs"
-                    placeholder={baseModel || 'مثال: 222A'}
+                    className="h-8 text-right text-xs"
+                    placeholder={baseModel || 'مثال: 222A أو W2220A'}
                     value={row.model}
                     onChange={(e) => updateRow(row.color, { model: e.target.value })}
-                    aria-label={`موديل اللون ${colorMeta?.name ?? row.color}`}
+                    aria-label={`الموديل الفرعي للون ${colorMeta?.name ?? row.color}`}
                   />
                   <TextInput
                     type="number"
                     min={0}
                     dir="ltr"
-                    className="h-9 text-center text-xs font-bold tabular-nums"
+                    className="h-8 text-center text-xs font-bold tabular-nums"
                     placeholder="الكمية"
                     value={row.quantity}
                     onChange={(e) => updateRow(row.color, { quantity: e.target.value })}
