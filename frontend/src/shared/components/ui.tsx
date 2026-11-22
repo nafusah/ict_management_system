@@ -1,0 +1,571 @@
+import { useEffect, useId, useRef, useState } from 'react'
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import { CaretDown, Check, CheckCircle, Info, MagnifyingGlass, Warning, WarningCircle, X } from '@phosphor-icons/react'
+
+const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
+
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
+
+const buttonStyles: Record<ButtonVariant, string> = {
+  primary: 'bg-signal text-slate-900 hover:bg-signal-hover font-bold',
+  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 font-medium',
+  ghost: 'text-slate-600 hover:bg-slate-100 font-medium',
+  danger: 'bg-red-700 text-white hover:bg-red-800 font-bold',
+}
+
+export function Button({
+  variant = 'secondary',
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={cx(
+        'inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm transition-colors',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        buttonStyles[variant],
+        className,
+      )}
+    />
+  )
+}
+
+export function IconButton({
+  label,
+  className,
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      {...props}
+      className={cx(
+        'inline-flex size-9 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900',
+        'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900',
+        className,
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+const fieldBase =
+  'h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 ' +
+  'focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-signal/60 aria-[invalid=true]:border-red-600'
+
+export function Field({
+  label,
+  error,
+  hint,
+  children,
+}: {
+  label: string
+  error?: string
+  hint?: string
+  children: (id: string, describedBy?: string) => ReactNode
+}) {
+  const id = useId()
+  const msgId = `${id}-msg`
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium text-slate-700">
+        {label}
+      </label>
+      {children(id, error || hint ? msgId : undefined)}
+      {error ? (
+        <p id={msgId} className="text-xs font-medium text-red-700">
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={msgId} className="text-xs text-slate-500">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={cx(fieldBase, className)} />
+}
+
+export function SelectInput({
+  options,
+  className,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & { options: { value: string; label: string }[] }) {
+  return (
+    <select {...props} className={cx(fieldBase, 'cursor-pointer', className)}>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+export function SearchableSelect({
+  id,
+  value,
+  onChange,
+  options,
+  disabled,
+  className,
+  placeholder = 'اختر...',
+  searchPlaceholder = 'ابحث...',
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+}: {
+  id?: string
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  disabled?: boolean
+  className?: string
+  placeholder?: string
+  searchPlaceholder?: string
+  'aria-describedby'?: string
+  'aria-invalid'?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? placeholder
+
+  const updateCoords = () => {
+    const el = triggerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const available = window.innerHeight - rect.bottom - 16
+    setCoords({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.max(150, Math.min(240, available)),
+    })
+  }
+
+  useEffect(() => {
+    if (!open) return
+    updateCoords()
+    setQuery('')
+    const focusTimer = setTimeout(() => searchRef.current?.focus(), 0)
+
+    const handleOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
+    }
+    const handleReposition = () => updateCoords()
+
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('keydown', handleKey, true)
+    window.addEventListener('resize', handleReposition)
+    window.addEventListener('scroll', handleReposition, true)
+    return () => {
+      clearTimeout(focusTimer)
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('keydown', handleKey, true)
+      window.removeEventListener('resize', handleReposition)
+      window.removeEventListener('scroll', handleReposition, true)
+    }
+  }, [open])
+
+  const filtered = query.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        ref={triggerRef}
+        id={id}
+        type="button"
+        disabled={disabled}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => {
+          if (!disabled) setOpen((prev) => !prev)
+        }}
+        className={cx(
+          fieldBase,
+          'flex items-center justify-between gap-2 text-right',
+          disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+          className,
+        )}
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <CaretDown className={cx('size-4 shrink-0 text-slate-400 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && coords && (
+        <div
+          style={{ top: coords.top, left: coords.left, width: coords.width }}
+          className="fixed z-50 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+        >
+          <div className="border-b border-slate-100 p-2">
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-900 focus:bg-white focus:outline-none"
+            />
+          </div>
+          <ul
+            role="listbox"
+            style={{ maxHeight: coords.maxHeight }}
+            className="overflow-y-auto py-1 text-sm"
+          >
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-center text-xs text-slate-400">لا توجد نتائج مطابقة</li>
+            ) : (
+              filtered.map((o) => {
+                const active = o.value === value
+                return (
+                  <li key={o.value}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      onClick={() => {
+                        onChange(o.value)
+                        setOpen(false)
+                      }}
+                      className={cx(
+                        'flex w-full items-center justify-between gap-2 px-3 py-2 text-right transition-colors',
+                        active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100',
+                      )}
+                    >
+                      <span className="truncate">{o.label}</span>
+                      {active && <Check className="size-3.5 shrink-0" />}
+                    </button>
+                  </li>
+                )
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function SearchInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+}) {
+  return (
+    <div className="relative w-full sm:max-w-sm">
+      <MagnifyingGlass className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        className={cx(fieldBase, 'pr-9')}
+      />
+    </div>
+  )
+}
+
+/** زر اختيار ضمن مجموعة فلاتر. */
+export function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cx(
+        'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors',
+        'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900',
+        active
+          ? 'bg-slate-900 text-white'
+          : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+type PillTone = 'green' | 'blue' | 'amber' | 'red' | 'slate'
+
+const pillTones: Record<PillTone, string> = {
+  green: 'bg-emerald-600 border-emerald-600 text-white',
+  blue: 'bg-blue-600 border-blue-600 text-white',
+  amber: 'bg-amber-500 border-amber-500 text-slate-950',
+  red: 'bg-red-600 border-red-600 text-white',
+  slate: 'bg-slate-700 border-slate-700 text-white',
+}
+
+export function Pill({ tone, children }: { tone: PillTone; children: ReactNode }) {
+  return (
+    <span
+      className={cx(
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+        pillTones[tone],
+      )}
+    >
+      <span aria-hidden className="size-1.5 rounded-full bg-current" />
+      {children}
+    </span>
+  )
+}
+
+/** نافذة حوار مبنية على عنصر dialog الأصلي (يحبس التركيز ويُغلق بـ Esc). */
+export function Modal({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  size = 'md',
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  description?: string
+  children: ReactNode
+  footer: ReactNode
+  size?: 'sm' | 'md'
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const [rendered, setRendered] = useState(open)
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => {
+    const d = ref.current
+    if (!d) return
+    if (open) {
+      setClosing(false)
+      setRendered(true)
+      if (!d.open) d.showModal()
+      return
+    }
+    if (!d.open) {
+      setRendered(false)
+      return
+    }
+    setClosing(true)
+    const timer = setTimeout(() => {
+      if (d.open) d.close()
+      setClosing(false)
+      setRendered(false)
+    }, 180)
+    return () => clearTimeout(timer)
+  }, [open])
+
+  return (
+    <dialog
+      ref={ref}
+      onCancel={(e) => {
+        e.preventDefault()
+        onClose()
+      }}
+      onClick={(e) => {
+        if (e.target === ref.current) onClose()
+      }}
+      className={cx(
+        'm-auto w-[calc(100%-2rem)] rounded-xl bg-white p-0 text-slate-900 shadow-2xl',
+        size === 'sm' ? 'max-w-md' : 'max-w-2xl',
+        closing && 'modal-closing',
+      )}
+    >
+      {rendered && (
+        <div className="flex max-h-[85vh] flex-col">
+          <div className="flex items-start gap-4 border-b border-slate-200 px-6 py-5">
+            <div className="flex-1">
+              <h2 className="text-lg font-bold">{title}</h2>
+              {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+            </div>
+            <IconButton label="إغلاق" onClick={onClose}>
+              <X className="size-5" />
+            </IconButton>
+          </div>
+          <div className="overflow-y-auto px-6 py-5">{children}</div>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4">
+            {footer}
+          </div>
+        </div>
+      )}
+    </dialog>
+  )
+}
+
+export function ConfirmDelete({
+  open,
+  itemName,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean
+  itemName: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <Modal
+      open={open}
+      onClose={onCancel}
+      size="sm"
+      title="حذف من السجل"
+      footer={
+        <>
+          <Button onClick={onCancel}>إلغاء</Button>
+          <Button variant="danger" onClick={onConfirm}>
+            حذف
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm leading-7 text-slate-700">
+        سيُحذف <strong className="font-bold text-slate-900">{itemName}</strong> نهائيًا من السجل.
+      </p>
+    </Modal>
+  )
+}
+
+export function PageHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-extrabold sm:text-3xl">{title}</h1>
+        <p className="mt-1 max-w-prose text-sm text-slate-500">{description}</p>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+export function Pagination({
+  page,
+  pageCount,
+  shown,
+  total,
+  noun,
+  onPage,
+}: {
+  page: number
+  pageCount: number
+  shown: number
+  total: number
+  noun: string
+  onPage: (p: number) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
+      <span>
+        عرض {shown} من أصل {total} {noun}
+      </span>
+      <div className="flex gap-2">
+        <Button className="h-8 px-3" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+          السابق
+        </Button>
+        <Button className="h-8 px-3" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
+          التالي
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+const toastIcons: Record<PillTone, typeof CheckCircle> = {
+  green: CheckCircle,
+  blue: Info,
+  amber: Warning,
+  red: WarningCircle,
+  slate: Info,
+}
+
+export function Toast({
+  message,
+  tone = 'green',
+  onClose,
+  duration = 3000,
+}: {
+  message: string | null
+  tone?: PillTone
+  onClose: () => void
+  duration?: number
+}) {
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => {
+    if (!message) {
+      setClosing(false)
+      return
+    }
+    setClosing(false)
+    const exitTimer = setTimeout(() => setClosing(true), Math.max(400, duration - 220))
+    const closeTimer = setTimeout(onClose, duration)
+    return () => {
+      clearTimeout(exitTimer)
+      clearTimeout(closeTimer)
+    }
+  }, [message, onClose, duration])
+
+  if (!message) return null
+  const Icon = toastIcons[tone]
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cx(
+        'fixed top-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold shadow-lg',
+        closing ? 'toast-exit' : 'toast-enter',
+        pillTones[tone],
+      )}
+    >
+      <Icon className="size-5 shrink-0" weight="duotone" />
+      <span>{message}</span>
+    </div>
+  )
+}
+
+export { cx }

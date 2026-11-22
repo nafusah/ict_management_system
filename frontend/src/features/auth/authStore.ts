@@ -1,0 +1,321 @@
+import { create } from 'zustand'
+import { ApiError, clearStoredSession, request } from '../../shared/data/api'
+import { auditLogsStore, hydrateAllFromApi, usersStore } from '../../shared/data/store'
+import { resetAllCollections } from '../../shared/data/createCollection'
+import type { AppUser, AuditAction, Permission } from '../../shared/data/types'
+
+const AUTH_KEY = 'it-management:session'
+
+export interface AuthSession {
+  userId: string
+  name: string
+  email: string
+  department: string
+  permissions?: Permission[]
+  token?: string
+}
+
+function readSession(): AuthSession | null {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY) ?? sessionStorage.getItem(AUTH_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as AuthSession
+      if (parsed && typeof parsed.token === 'string' && parsed.token.trim().length > 0) {
+        return parsed
+      }
+      clearStoredSession()
+    }
+  } catch {
+    // التخزين غير متاح
+  }
+  return null
+}
+
+function writeSession(session: AuthSession | null, remember: boolean) {
+  try {
+    localStorage.removeItem(AUTH_KEY)
+    sessionStorage.removeItem(AUTH_KEY)
+    if (session) {
+      const storage = remember ? localStorage : sessionStorage
+      storage.setItem(AUTH_KEY, JSON.stringify(session))
+    }
+  } catch {
+    // نكتفي بالذاكرة عند تعذر التخزين
+  }
+}
+
+export interface AuthState {
+  session: AuthSession | null
+  loading: boolean
+  hydrating: boolean
+  justLoggedIn: boolean
+  clearJustLoggedIn: () => void
+  setSession: (session: AuthSession | null, remember: boolean) => void
+  syncSessionProfile: (user: Pick<AppUser, 'id' | 'name' | 'email' | 'department' | 'permissions'>) => void
+  login: (
+    email: string,
+    password: string,
+    remember?: boolean,
+  ) => Promise<{ ok: true; session: AuthSession } | { ok: false; error: string; isConnectionError?: boolean }>
+  quickDemoLogin: (remember?: boolean) => void
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
+  logout: () => void
+  recordAudit: (action: AuditAction, entityType: string, summary: string, entityId?: string) => void
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  session: readSession(),
+  loading: false,
+  hydrating: false,
+  justLoggedIn: false,
+
+  clearJustLoggedIn: () => set({ justLoggedIn: false }),
+
+  setSession: (session, remember) => {
+    writeSession(session, remember)
+    set({ session })
+  },
+
+  syncSessionProfile: (user) => {
+    const current = get().session
+    if (!current || current.userId !== user.id) return
+    const updated: AuthSession = {
+      ...current,
+      name: user.name,
+      email: user.email,
+      department: user.department,
+      permissions: user.permissions,
+    }
+    const remember = (() => {
+      try {
+        return localStorage.getItem(AUTH_KEY) !== null
+      } catch {
+        return true
+      }
+    })()
+    writeSession(updated, remember)
+    set({ session: updated })
+  },
+
+  recordAudit: (action, entityType, summary, entityId) => {
+    const session = get().session
+    if (session?.token) return
+    auditLogsStore.add({
+      userId: session?.userId,
+      userName: session?.name ?? 'النظام',
+      action,
+      entityType,
+      entityId,
+      summary,
+      createdAt: new Date().toISOString(),
+    })
+  },
+
+  login: async (email, password, remember = true) => {
+    const rawEmail = email.trim().toLowerCase()
+    const cleanEmail = rawEmail && !rawEmail.includes('@') ? `${rawEmail}@nafusah.com` : rawEmail
+
+    if (!cleanEmail) {
+      return { ok: false, error: 'يرجى إدخال البريد الإلكتروني.' }
+    }
+    if (!password || password.length < 4) {
+      return { ok: false, error: 'كلمة المرور يجب أن تكون 4 أحرف على الأقل.' }
+    }
+
+    set({ loading: true })
+    try {
+      const res = await request.post<{ token: string; user: AppUser }>('/auth/login', {
+        email: cleanEmail,
+        password,
+      })
+
+      const session: AuthSession = {
+        userId: res.user.id,
+        name: res.user.name,
+        email: res.user.email,
+        department: res.user.department,
+        permissions: res.user.permissions,
+        token: res.token,
+      }
+      set({ justLoggedIn: true, hydrating: true })
+      get().setSession(session, remember)
+      try {
+        await hydrateAllFromApi(session.permissions)
+      } finally {
+        set({ loading: false, hydrating: false })
+      }
+      return { ok: true, session }
+    } catch (err) {
+      set({ loading: false })
+      if (err instanceof ApiError) {
+        if (err.status >= 500) {
+          return {
+            ok: false,
+            isConnectionError: true,
+            error: 'حدث خطأ، يرجى المحاولة لاحقاً.',
+          }
+        }
+        return { ok: false, error: err.message }
+      }
+      return {
+        ok: false,
+        isConnectionError: true,
+        error: 'حدث خطأ، يرجى المحاولة لاحقاً.',
+      }
+    }
+  },
+
+  quickDemoLogin: (remember = true) => {
+    const users = usersStore.getAll()
+    const admin = users.find((u) => u.active) ?? users[0]
+    if (!admin) return
+    set({ justLoggedIn: true })
+    get().setSession(
+      {
+        userId: admin.id,
+        name: admin.name,
+        email: admin.email,
+        department: admin.department,
+        permissions: admin.permissions,
+      },
+      remember,
+    )
+    get().recordAudit('login', 'auth', `دخول تجريبي: ${admin.name}`, admin.id)
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    const session = get().session
+    if (!session) {
+      return { ok: false, error: 'يجب تسجيل الدخول أولاً.' }
+    }
+    if (!currentPassword || currentPassword.length < 4) {
+      return { ok: false, error: 'أدخل كلمة المرور الحالية.' }
+    }
+    if (!newPassword || newPassword.length < 4) {
+      return { ok: false, error: 'كلمة المرور الجديدة يجب أن تكون 4 أحرف على الأقل.' }
+    }
+
+    if (session.token) {
+      try {
+        await request.post('/auth/change-password', { currentPassword, newPassword })
+        return { ok: true }
+      } catch (err) {
+        if (err instanceof ApiError && err.status < 500) {
+          return { ok: false, error: err.message }
+        }
+        return { ok: false, error: 'حدث خطأ، يرجى المحاولة لاحقاً.' }
+      }
+    }
+
+    const users = usersStore.getAll()
+    const current = users.find((u) => u.id === session.userId)
+    if (!current) return { ok: false, error: 'المستخدم غير موجود.' }
+    const expected = current.password ?? '123456'
+    if (currentPassword !== expected) {
+      return { ok: false, error: 'كلمة المرور الحالية غير صحيحة.' }
+    }
+    usersStore.update({ ...current, password: newPassword })
+    return { ok: true }
+  },
+
+  logout: () => {
+    const session = get().session
+    if (session?.token) {
+      void request.post('/auth/logout').catch(() => { })
+    } else if (session) {
+      get().recordAudit('logout', 'auth', `تسجيل خروج: ${session.name}`, session.userId)
+    }
+    set({ justLoggedIn: false, hydrating: false })
+    get().setSession(null, false)
+    resetAllCollections()
+  },
+}))
+
+const VOUCHER_PERM_MIGRATION_KEY = 'it-management:migrated-vouchers-perms-v1'
+
+function migrateLocalVoucherPermissions() {
+  if (typeof window === 'undefined') return
+  try {
+    if (localStorage.getItem(VOUCHER_PERM_MIGRATION_KEY) === '1') return
+
+    const mergePerms = (existing: Permission[], extra: Permission[]): Permission[] => {
+      const next = new Set(existing)
+      for (const p of extra) next.add(p)
+      return Array.from(next)
+    }
+
+    const users = usersStore.getAll()
+    let changed = false
+    const migratedUsers = users.map((u) => {
+      if (
+        u.id === 'USR-001' ||
+        u.permissions.includes('settings.manage') ||
+        u.permissions.includes('inks.manage')
+      ) {
+        const nextPerms = mergePerms(u.permissions, [
+          'inks.vouchers.view',
+          'inks.vouchers.create',
+          'inks.vouchers.approve',
+        ])
+        if (nextPerms.length !== u.permissions.length) {
+          changed = true
+          return { ...u, permissions: nextPerms }
+        }
+      } else if (u.id === 'USR-002') {
+        const nextPerms = mergePerms(u.permissions, ['inks.vouchers.view', 'inks.vouchers.create'])
+        if (nextPerms.length !== u.permissions.length) {
+          changed = true
+          return { ...u, permissions: nextPerms }
+        }
+      } else if (u.id === 'USR-003') {
+        const nextPerms = mergePerms(u.permissions, ['inks.vouchers.view'])
+        if (nextPerms.length !== u.permissions.length) {
+          changed = true
+          return { ...u, permissions: nextPerms }
+        }
+      }
+      return u
+    })
+
+    if (changed) {
+      usersStore.setAll(migratedUsers)
+    }
+
+    const session = useAuthStore.getState().session
+    if (session && !session.token) {
+      const matched = migratedUsers.find((u) => u.id === session.userId)
+      if (matched) {
+        useAuthStore.getState().syncSessionProfile(matched)
+      }
+    }
+
+    localStorage.setItem(VOUCHER_PERM_MIGRATION_KEY, '1')
+  } catch {
+    // التخزين غير متاح
+  }
+}
+
+migrateLocalVoucherPermissions()
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('it-auth:unauthorized', () => {
+    useAuthStore.setState({ session: null, loading: false, hydrating: false, justLoggedIn: false })
+    resetAllCollections()
+  })
+}
+
+if (useAuthStore.getState().session?.token) {
+  void request
+    .get<AppUser>('/auth/me')
+    .then((me) => {
+      useAuthStore.getState().syncSessionProfile(me)
+      return hydrateAllFromApi(me.permissions)
+    })
+    .catch((err) => {
+      if (err instanceof ApiError && err.status === 401) return
+      return hydrateAllFromApi()
+    })
+}
