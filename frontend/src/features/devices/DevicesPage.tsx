@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ListSkeleton } from '../../shared/components/Skeleton'
 import type { FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, Monitor, Pencil, Phone, Plus, Printer, Server, Smartphone, Trash2 } from 'lucide-react'
@@ -20,7 +21,7 @@ import {
   cx,
 } from '../../shared/components/ui'
 import { recordAudit, usePermission } from '../../shared/data/auth'
-import { devicesStore, useBrands, useDepartments, useDeviceTypes, useDevices, useEmployees } from '../../shared/data/store'
+import { devicesStore, useBrands, useDepartments, useDeviceTypes, useDevices, useEmployees, useDataLoading } from '../../shared/data/store'
 import { OTHER } from '../../shared/data/options'
 import { CLASSIFICATIONS, DEVICE_LOCATIONS } from '../../shared/data/types'
 import type { BuiltinDeviceKind, Classification, Device, DeviceKind, DeviceLocation } from '../../shared/data/types'
@@ -38,6 +39,7 @@ const KIND_ICONS: Record<BuiltinDeviceKind, typeof Monitor> = {
 export default function Devices() {
   const navigate = useNavigate()
   const canManage = usePermission('devices.manage')
+  const dataLoading = useDataLoading()
   const devices = useDevices()
   const deviceTypes = useDeviceTypes()
   const kindMap = useMemo(() => Object.fromEntries(deviceTypes.map((t) => [t.id, t])), [deviceTypes])
@@ -236,7 +238,7 @@ export default function Devices() {
           </table>
         </div>
 
-        {filtered.length === 0 && (
+        {dataLoading && devices.length === 0 ? <ListSkeleton /> : filtered.length === 0 && (
           <div className="px-6 py-14 text-center">
             <p className="font-semibold">
               {devices.length === 0 ? 'لم يُسجَّل أي جهاز بعد.' : 'لا توجد أجهزة تطابق البحث.'}

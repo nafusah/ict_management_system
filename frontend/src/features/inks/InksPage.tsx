@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ListSkeleton } from '../../shared/components/Skeleton'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowRight, ArrowUpFromLine, Pencil, Plus, Printer, Trash2 } from 'lucide-react'
 import {
@@ -14,7 +15,7 @@ import {
   cx,
 } from '../../shared/components/ui'
 import { recordAudit, usePermission } from '../../shared/data/auth'
-import { inksStore, useInkColors, useInks, usePrinterTypes } from '../../shared/data/store'
+import { inksStore, useInkColors, useInks, usePrinterTypes, useDataLoading } from '../../shared/data/store'
 import { isLowStock } from '../../shared/data/types'
 import type { Ink } from '../../shared/data/types'
 import { FALLBACK_COLOR } from './components/inkFallbackColor'
@@ -27,6 +28,7 @@ const PAGE_SIZE = 10
 
 export default function Inks({ lockedPrinterTypeId }: { lockedPrinterTypeId?: string } = {}) {
   const canManage = usePermission('inks.manage')
+  const dataLoading = useDataLoading()
   const inks = useInks()
   const inkColors = useInkColors()
   const printerTypes = usePrinterTypes()
@@ -304,7 +306,7 @@ export default function Inks({ lockedPrinterTypeId }: { lockedPrinterTypeId?: st
           </table>
         </div>
 
-        {filtered.length === 0 && (
+        {dataLoading && inks.length === 0 ? <ListSkeleton /> : filtered.length === 0 && (
           <div className="px-6 py-14 text-center">
             <p className="font-semibold">
               {inks.length === 0 ? 'لا توجد أصناف حبر في المخزون.' : 'لا توجد أصناف تطابق البحث.'}

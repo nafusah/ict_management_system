@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
+import { CardGridSkeleton } from '../../shared/components/Skeleton'
 import { Link } from 'react-router-dom'
 import { ArrowRight, ChevronDown, Plus } from 'lucide-react'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import { Button, PageHeader, Pill, SearchInput, Toast, cx } from '../../shared/components/ui'
 import { usePermission } from '../../shared/data/auth'
-import { inksStore, savePrinterType, useInkColors, useInks, usePrinterTypes } from '../../shared/data/store'
+import { inksStore, savePrinterType, useInkColors, useInks, usePrinterTypes, useDataLoading } from '../../shared/data/store'
 import { isLowStock } from '../../shared/data/types'
 import { PrinterTypeFormModal } from '../dictionary/components/PrinterTypeFormModal'
 
@@ -12,6 +13,7 @@ const countItems = (n: number) =>
   n === 1 ? 'صنف واحد' : n === 2 ? 'صنفان' : n <= 10 ? `${n} أصناف` : `${n} صنفًا`
 
 export default function PrintersInksPage() {
+  const dataLoading = useDataLoading()
   const printerTypes = usePrinterTypes()
   const inks = useInks()
   const inkColors = useInkColors()
@@ -75,7 +77,9 @@ export default function PrintersInksPage() {
         </div>
       )}
 
-      {printerTypes.length === 0 ? (
+      {dataLoading && printerTypes.length === 0 ? (
+        <CardGridSkeleton />
+      ) : printerTypes.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
           لم يتم إضافة أنواع طابعات بعد.
           {canManagePrinterTypes && (

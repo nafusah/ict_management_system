@@ -1,3 +1,4 @@
+import { create } from 'zustand'
 import { getStoredToken } from './api'
 import { devicesStore, useDevices } from '../../features/devices/devicesStore'
 import {
@@ -135,8 +136,26 @@ function readStoredPermissions(): Permission[] | null {
   }
 }
 
+// حالة أول تحميل للبيانات من الخادم — تُستعمل لعرض هياكل التحميل (Skeletons)
+const useDataLoadingStore = create<{ loading: boolean }>(() => ({ loading: !!getStoredToken() }))
+
+/** true وقت تحميل البيانات من الخادم (بعد الدخول أو تحديث الصفحة). */
+export const useDataLoading = () => useDataLoadingStore((s) => s.loading)
+
 export async function hydrateAllFromApi(explicitPerms?: Permission[]) {
-  if (!getStoredToken()) return
+  if (!getStoredToken()) {
+    useDataLoadingStore.setState({ loading: false })
+    return
+  }
+  useDataLoadingStore.setState({ loading: true })
+  try {
+    await runHydration(explicitPerms)
+  } finally {
+    useDataLoadingStore.setState({ loading: false })
+  }
+}
+
+async function runHydration(explicitPerms?: Permission[]) {
   const perms = explicitPerms ?? readStoredPermissions()
   const hasAny = (...list: Permission[]) => !perms || list.some((p) => perms.includes(p))
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { TableRowsSkeleton } from '../../shared/components/Skeleton'
 import { Building2, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import {
   Button,
@@ -17,13 +18,14 @@ import {
 } from '../../shared/components/ui'
 import { SettingsTabs } from './components/SettingsTabs'
 import { recordAudit } from '../../shared/data/auth'
-import { departmentsStore, employeesStore, useDepartments, useEmployees } from '../../shared/data/store'
+import { departmentsStore, employeesStore, useDepartments, useEmployees, useDataLoading } from '../../shared/data/store'
 import type { DepartmentItem, EmployeeItem } from '../../shared/data/types'
 
 const PAGE_SIZE = 12
 
 export default function Employees() {
   const departments = useDepartments()
+  const dataLoading = useDataLoading()
   const employees = useEmployees()
 
   const [query, setQuery] = useState('')
@@ -238,7 +240,9 @@ export default function Employees() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.length === 0 ? (
+              {dataLoading && employees.length === 0 ? (
+                <TableRowsSkeleton cols={4} />
+              ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">
                     لا يوجد موظفون مطابقون للبحث الحالي.

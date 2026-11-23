@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TableRowsSkeleton } from '../../shared/components/Skeleton'
 import { Check, Pencil, Plus, Shield, Trash2, UserCheck, UserX } from 'lucide-react'
 import {
   Button,
@@ -19,7 +20,7 @@ import {
 import { SettingsTabs } from './components/SettingsTabs'
 import { useAuthStore } from '../auth/authStore'
 import { recordAudit } from '../../shared/data/auth'
-import { usersStore, useUsers } from '../../shared/data/store'
+import { usersStore, useUsers, useDataLoading } from '../../shared/data/store'
 import { PERMISSIONS } from '../../shared/data/types'
 import type { AppUser, Permission } from '../../shared/data/types'
 
@@ -92,6 +93,7 @@ const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
 const PAGE_SIZE = 6
 
 export default function Users() {
+  const dataLoading = useDataLoading()
   const users = useUsers()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -188,7 +190,9 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.length === 0 ? (
+              {dataLoading && users.length === 0 ? (
+                <TableRowsSkeleton cols={5} />
+              ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
                     لا يوجد مستخدمون مطابقون لنتائج البحث.

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ListSkeleton } from '../../shared/components/Skeleton'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { CalendarClock, KeyRound, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
@@ -27,6 +28,7 @@ import {
   useServices,
   useSubscriptionCategories,
   useSubscriptions,
+  useDataLoading,
 } from '../../shared/data/store'
 import {
   SUBSCRIPTION_CATEGORIES,
@@ -61,6 +63,7 @@ function addOneYear(dateStr: string) {
 
 export default function Subscriptions() {
   const canManage = usePermission('subscriptions.manage')
+  const dataLoading = useDataLoading()
   const subscriptions = useSubscriptions()
   const categories = useSubscriptionCategories()
   const providers = useProviders()
@@ -285,7 +288,7 @@ export default function Subscriptions() {
           </table>
         </div>
 
-        {filtered.length === 0 && (
+        {dataLoading && subscriptions.length === 0 ? <ListSkeleton /> : filtered.length === 0 && (
           <div className="px-6 py-14 text-center">
             <p className="font-semibold">
               {subscriptions.length === 0 ? 'لا توجد اشتراكات مسجلة بعد.' : 'لا توجد اشتراكات تطابق البحث.'}

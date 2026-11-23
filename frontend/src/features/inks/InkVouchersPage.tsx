@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ListSkeleton } from '../../shared/components/Skeleton'
 import { CheckCircle2, Eye, Plus, Printer, Trash2, XCircle } from 'lucide-react'
 import { InkReceiptModal, type InkReceiptData } from './components/InkReceiptModal'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
@@ -28,6 +29,7 @@ import {
   useInkVouchers,
   useInks,
   usePrinterTypes,
+  useDataLoading,
 } from '../../shared/data/store'
 import { INK_VOUCHER_STATUSES } from '../../shared/data/types'
 import type { InkColorItem, InkVoucher, InkVoucherLineItem, InkVoucherStatus } from '../../shared/data/types'
@@ -41,6 +43,7 @@ import { RejectVoucherModal } from './components/RejectVoucherModal'
 const PAGE_SIZE = 10
 
 export default function InkVouchersPage() {
+  const dataLoading = useDataLoading()
   const vouchers = useInkVouchers()
   const inks = useInks()
   const inkColors = useInkColors()
@@ -308,7 +311,11 @@ export default function InkVouchersPage() {
         </div>
       </div>
 
-      {rows.length === 0 ? (
+      {dataLoading && vouchers.length === 0 ? (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <ListSkeleton />
+        </div>
+      ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
           <Illustration svg={Illustrations.inkHero()} label="أذونات صرف الأحبار" className="mb-4 size-36" />
           <p className="text-sm font-semibold text-slate-800">

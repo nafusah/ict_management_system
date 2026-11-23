@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TableRowsSkeleton } from '../../shared/components/Skeleton'
 import { History } from 'lucide-react'
 import {
   PageHeader,
@@ -8,7 +9,7 @@ import {
   SelectInput,
 } from '../../shared/components/ui'
 import { SettingsTabs } from './components/SettingsTabs'
-import { useAuditLogs } from '../../shared/data/store'
+import { useAuditLogs, useDataLoading } from '../../shared/data/store'
 import type { AuditAction } from '../../shared/data/types'
 
 const PAGE_SIZE = 15
@@ -48,6 +49,7 @@ function formatDateTime(iso: string): string {
 }
 
 export default function AuditLogs() {
+  const dataLoading = useDataLoading()
   const logs = useAuditLogs()
   const [query, setQuery] = useState('')
   const [actionFilter, setActionFilter] = useState<string>('all')
@@ -127,7 +129,9 @@ export default function AuditLogs() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.length === 0 ? (
+              {dataLoading && logs.length === 0 ? (
+                <TableRowsSkeleton cols={5} />
+              ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
                     لا توجد عمليات مسجلة بعد.

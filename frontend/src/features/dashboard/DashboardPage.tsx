@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { ShieldAlert } from 'lucide-react'
 import { Illustration, Illustrations } from '../../shared/components/Illustrations'
 import { cx } from '../../shared/components/ui'
+import { Skeleton } from '../../shared/components/Skeleton'
 import { usePermission } from '../../shared/data/auth'
-import { useDevices, useInks, usePrinterTypes, useSubscriptions } from '../../shared/data/store'
+import { useDataLoading, useDevices, useInks, usePrinterTypes, useSubscriptions } from '../../shared/data/store'
 import { getSubscriptionStatus, isLowStock } from '../../shared/data/types'
 
 const cardBase =
@@ -31,6 +32,7 @@ function HeroCard({
   value,
   label,
   note,
+  loading = false,
 }: {
   to?: string
   svg: string
@@ -38,13 +40,20 @@ function HeroCard({
   value: number
   label: string
   note: ReactNode
+  loading?: boolean
 }) {
   const content = (
     <div className="flex flex-col-reverse items-stretch gap-4 @md:flex-row @md:items-center">
       <div className="min-w-0 flex-1">
-        <div className="text-6xl leading-none font-extrabold tabular-nums">{value}</div>
+        {loading ? (
+          <Skeleton className="h-[3.75rem] w-28" />
+        ) : (
+          <div className="text-6xl leading-none font-extrabold tabular-nums">{value}</div>
+        )}
         <div className="mt-2 text-base font-bold">{label}</div>
-        <div className="mt-3 text-sm text-slate-500">{note}</div>
+        <div className="mt-3 text-sm text-slate-500">
+          {loading ? <Skeleton className="mt-1 h-4 w-40" /> : note}
+        </div>
       </div>
       <Illustration svg={svg} label={svgLabel} className="h-40 @md:h-44 @md:w-1/2" />
     </div>
@@ -71,6 +80,7 @@ export default function Dashboard() {
   const inks = useInks()
   const printerTypes = usePrinterTypes()
   const subscriptions = useSubscriptions()
+  const dataLoading = useDataLoading()
 
   const heroCount = Number(canDashboardDevices) + Number(canDashboardInks) + Number(canDashboardSubs)
 
@@ -111,6 +121,7 @@ export default function Dashboard() {
             svg={Illustrations.devicesHero}
             svgLabel="رسمة مكتب عليه شاشة وكيس وهاتف مكتبي"
             value={devices.length}
+            loading={dataLoading && devices.length === 0}
             label="جهاز مسجل"
             note={`${personal} شخصي و${devices.length - personal} جماعي`}
           />
@@ -121,6 +132,7 @@ export default function Dashboard() {
             svg={Illustrations.inkHero()}
             svgLabel="رسمة خرطوشة حبر بالألوان الأربعة"
             value={totalCartridges}
+            loading={dataLoading && inks.length === 0}
             label="خرطوشة حبر في المخزون"
             note={
               <div className="flex flex-wrap items-center gap-2">
@@ -144,6 +156,7 @@ export default function Dashboard() {
             svg={Illustrations.subscriptionsHero}
             svgLabel="رسمة الاشتراكات والتراخيص"
             value={subscriptions.length}
+            loading={dataLoading && subscriptions.length === 0}
             label="اشتراك وترخيص"
             note={
               dueSubscriptions === 0 ? (
