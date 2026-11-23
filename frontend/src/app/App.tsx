@@ -1,30 +1,34 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { ShieldAlert } from 'lucide-react'
 import Layout from './Layout'
+import { PageLoader } from './PageLoader'
 import SplashIntro from '../shared/components/SplashIntro'
 import LoginPage from '../features/auth/LoginPage'
-import Brands from '../features/dictionary/BrandsPage'
-import Dashboard from '../features/dashboard/DashboardPage'
-import DeviceTypes from '../features/dictionary/DeviceTypesPage'
-import DeviceDetailsPage from '../features/devices/DeviceDetailsPage'
-import Devices from '../features/devices/DevicesPage'
-import InkColors from '../features/dictionary/InkColorsPage'
-import PrinterTypes from '../features/dictionary/PrinterTypesPage'
-import Inks from '../features/inks/InksPage'
-import InkVouchersPage from '../features/inks/InkVouchersPage'
-import PrinterInksDetailPage from '../features/inks/PrinterInksDetailPage'
-import PrintersInksPage from '../features/inks/PrintersInksPage'
-import ServicesSettings from '../features/dictionary/ServicesSettingsPage'
-import AuditLogs from '../features/settings/AuditLogsPage'
-import Employees from '../features/settings/EmployeesPage'
-import NotificationSettings from '../features/settings/NotificationSettingsPage'
-import Settings from '../features/settings/SettingsPage'
-import Subscriptions from '../features/subscriptions/SubscriptionsPage'
-import SubscriptionsSummaryPage from '../features/subscriptions/SubscriptionsSummaryPage'
-import Users from '../features/settings/UsersPage'
 import { useAuth, useCurrentPermissions, usePermission } from '../shared/data/auth'
 import { DICTIONARY_TABS } from '../features/dictionary/components/DictionaryTabs'
 import type { Permission } from '../shared/data/types'
+
+// كل صفحة تتحمل وقت ما تنفتح (code splitting)
+const Brands = lazy(() => import('../features/dictionary/BrandsPage'))
+const Dashboard = lazy(() => import('../features/dashboard/DashboardPage'))
+const DeviceTypes = lazy(() => import('../features/dictionary/DeviceTypesPage'))
+const DeviceDetailsPage = lazy(() => import('../features/devices/DeviceDetailsPage'))
+const Devices = lazy(() => import('../features/devices/DevicesPage'))
+const InkColors = lazy(() => import('../features/dictionary/InkColorsPage'))
+const PrinterTypes = lazy(() => import('../features/dictionary/PrinterTypesPage'))
+const Inks = lazy(() => import('../features/inks/InksPage'))
+const InkVouchersPage = lazy(() => import('../features/inks/InkVouchersPage'))
+const PrinterInksDetailPage = lazy(() => import('../features/inks/PrinterInksDetailPage'))
+const PrintersInksPage = lazy(() => import('../features/inks/PrintersInksPage'))
+const ServicesSettings = lazy(() => import('../features/dictionary/ServicesSettingsPage'))
+const AuditLogs = lazy(() => import('../features/settings/AuditLogsPage'))
+const Employees = lazy(() => import('../features/settings/EmployeesPage'))
+const NotificationSettings = lazy(() => import('../features/settings/NotificationSettingsPage'))
+const Settings = lazy(() => import('../features/settings/SettingsPage'))
+const Subscriptions = lazy(() => import('../features/subscriptions/SubscriptionsPage'))
+const SubscriptionsSummaryPage = lazy(() => import('../features/subscriptions/SubscriptionsSummaryPage'))
+const Users = lazy(() => import('../features/settings/UsersPage'))
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const session = useAuth()
@@ -78,6 +82,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <SplashIntro />
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route
           path="/login"
@@ -243,6 +248,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

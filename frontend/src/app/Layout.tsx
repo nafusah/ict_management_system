@@ -1,26 +1,34 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { ComponentType } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { PageLoader } from './PageLoader'
+import {
+  AuditNavIcon,
+  CategoriesNavIcon,
+  DashboardNavIcon,
+  DevicesNavIcon,
+  DictionaryNavIcon,
+  EmployeesNavIcon,
+  InksNavIcon,
+  PrintersNavIcon,
+  SettingsNavIcon,
+  SubscriptionsNavIcon,
+  UsersNavIcon,
+  VouchersNavIcon,
+  type NavIconProps,
+} from '../shared/components/NavIcons'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DICTIONARY_TABS } from '../features/dictionary/components/DictionaryTabs'
 import {
   Bell,
-  BookOpen,
   CaretDown,
   CheckCircle,
   ClipboardText,
-  ClockCounterClockwise,
-  DesktopTower,
   Drop,
-  Folders,
-  Gear,
-  IdentificationCard,
   Key,
   List,
   LockSimple,
-  Printer,
   SignOut,
-  SquaresFour,
   Trash,
-  Users,
   Warning,
   X,
 } from '@phosphor-icons/react'
@@ -34,7 +42,7 @@ import { Button, Field, Modal, Pill, TextInput, Toast, cx } from '../shared/comp
 type NavItem = {
   to: string
   label: string
-  icon: typeof SquaresFour
+  icon: ComponentType<NavIconProps>
   indent?: boolean
   end?: boolean
   matchPrefix?: string
@@ -54,7 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
       {
         to: '/',
         label: 'لوحة التحكم',
-        icon: SquaresFour,
+        icon: DashboardNavIcon,
         permissions: ['dashboard.devices', 'dashboard.inks', 'dashboard.subscriptions'],
       },
     ],
@@ -63,25 +71,25 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'devices',
     title: 'الأجهزة',
     items: [
-      { to: '/devices', label: 'الأجهزة', icon: DesktopTower, permissions: ['devices.view', 'devices.manage'] },
+      { to: '/devices', label: 'الأجهزة', icon: DevicesNavIcon, permissions: ['devices.view', 'devices.manage'] },
     ],
   },
   {
     id: 'inks',
     title: 'الأحبار',
     items: [
-      { to: '/inks', label: 'مخزون الأحبار', icon: Drop, end: true, permissions: ['inks.view', 'inks.manage'] },
+      { to: '/inks', label: 'مخزون الأحبار', icon: InksNavIcon, end: true, permissions: ['inks.view', 'inks.manage'] },
       {
         to: '/inks/printers',
         label: 'الطابعات والأحبار',
-        icon: Printer,
+        icon: PrintersNavIcon,
         end: true,
         permissions: ['dashboard.inks', 'inks.view', 'inks.manage'],
       },
       {
         to: '/inks/vouchers',
         label: 'أذونات صرف الأحبار',
-        icon: ClipboardText,
+        icon: VouchersNavIcon,
         end: true,
         permissions: ['inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve'],
       },
@@ -94,14 +102,14 @@ const NAV_SECTIONS: NavSection[] = [
       {
         to: '/subscriptions',
         label: 'الاشتراكات والتراخيص',
-        icon: Key,
+        icon: SubscriptionsNavIcon,
         end: true,
         permissions: ['subscriptions.view', 'subscriptions.manage'],
       },
       {
         to: '/subscriptions/summary',
         label: 'تصنيفات الاشتراكات',
-        icon: Folders,
+        icon: CategoriesNavIcon,
         end: true,
         permissions: ['dashboard.subscriptions', 'subscriptions.view', 'subscriptions.manage'],
       },
@@ -112,26 +120,26 @@ const NAV_SECTIONS: NavSection[] = [
 const NAV: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items)
 
 const BOTTOM_NAV: NavItem[] = [
-  { to: '/settings', label: 'الإعدادات', icon: Gear, end: true, permissions: ['settings.manage'] },
-  { to: '/settings/users', label: 'المستخدمين', icon: Users, indent: true, permissions: ['settings.manage'] },
+  { to: '/settings', label: 'الإعدادات', icon: SettingsNavIcon, end: true, permissions: ['settings.manage'] },
+  { to: '/settings/users', label: 'المستخدمين', icon: UsersNavIcon, indent: true, permissions: ['settings.manage'] },
   {
     to: '/settings/employees',
     label: 'الموظفين',
-    icon: IdentificationCard,
+    icon: EmployeesNavIcon,
     indent: true,
     permissions: ['employees.manage', 'settings.manage'],
   },
   {
     to: '/settings/audit-logs',
     label: 'سجل التدقيق',
-    icon: ClockCounterClockwise,
+    icon: AuditNavIcon,
     indent: true,
     permissions: ['settings.manage'],
   },
   {
     to: '/dictionary/device-types',
     label: 'القاموس',
-    icon: BookOpen,
+    icon: DictionaryNavIcon,
     indent: true,
     matchPrefix: '/dictionary',
     permissions: ['dictionary.deviceTypes', 'dictionary.printerTypes', 'dictionary.inkColors', 'dictionary.brands', 'dictionary.services'],
@@ -173,12 +181,12 @@ function SidebarLink({
             <>
               <span data-active-marker={active ? 'true' : undefined} className="hidden" />
               <Icon
+                active={active}
                 className={cx(
-                  'relative z-10 transition-all duration-300',
-                  indent ? 'size-4' : 'size-5',
-                  active && 'text-signal drop-shadow-[0_0_8px_rgba(252,196,26,0.55)]',
+                  'relative z-10 shrink-0 transition-all duration-300',
+                  indent ? 'size-6' : 'size-7',
+                  !active && 'opacity-80',
                 )}
-                weight={active ? 'duotone' : 'regular'}
               />
               <span className="relative z-10">{label}</span>
             </>
@@ -762,7 +770,9 @@ export default function Layout() {
           )}
         >
           <div key={location.pathname} className="page-transition">
-            <Outlet />
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>
