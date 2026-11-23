@@ -280,3 +280,43 @@ export const INK_COLORS: Record<
 }
 
 export const isLowStock = (ink: Ink) => ink.quantity <= ink.alertThreshold
+
+// ---------------------------------------------------------------
+// سجل عهدة الأجهزة
+// ---------------------------------------------------------------
+
+export type CustodyAction = 'assigned' | 'transferred' | 'returned'
+export type DeviceCondition = 'new' | 'good' | 'fair' | 'damaged'
+
+export interface CustodyRecord {
+  id: string
+  deviceId: string
+  action: CustodyAction
+  fromEmployee?: string | null
+  fromDepartment?: string | null
+  toEmployee?: string | null
+  toDepartment?: string | null
+  date: string
+  condition?: DeviceCondition | null
+  notes?: string | null
+  performedById?: string | null
+  performedByName?: string | null
+  createdAt?: string
+}
+
+export const CUSTODY_ACTIONS: Record<CustodyAction, { label: string; tone: 'green' | 'blue' | 'amber' }> = {
+  assigned: { label: 'تسليم', tone: 'green' },
+  transferred: { label: 'نقل عهدة', tone: 'blue' },
+  returned: { label: 'إرجاع للمخزن', tone: 'amber' },
+}
+
+export const DEVICE_CONDITIONS: Record<DeviceCondition, string> = {
+  new: 'جديد',
+  good: 'جيد',
+  fair: 'مقبول (آثار استخدام)',
+  damaged: 'تالف / يحتاج صيانة',
+}
+
+/** نفس القيم المعرّفة في DeviceController::STORAGE_* على الخادم */
+export const STORAGE_EMPLOYEE = 'مخزن تقنية المعلومات'
+export const SHARED_EMPLOYEE = 'مشترك للإدارة'

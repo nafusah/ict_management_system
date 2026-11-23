@@ -38,6 +38,9 @@ Route::middleware('auth.api')->group(function () {
     Route::put('devices/{device}', [DeviceController::class, 'update'])->middleware('permission:devices.manage');
     Route::patch('devices/{device}', [DeviceController::class, 'update'])->middleware('permission:devices.manage');
     Route::delete('devices/{device}', [DeviceController::class, 'destroy'])->middleware('permission:devices.manage');
+    Route::get('devices/{device}/custody', [DeviceController::class, 'custody'])->middleware('permission:devices.view,devices.manage');
+    Route::post('devices/{device}/transfer', [DeviceController::class, 'transfer'])->middleware('permission:devices.manage');
+    Route::post('devices/{device}/return', [DeviceController::class, 'returnToStorage'])->middleware('permission:devices.manage');
 
     // Inks
     Route::get('inks', [InkController::class, 'index'])->middleware('permission:inks.view,inks.manage,dashboard.inks,inks.vouchers.view,inks.vouchers.create,inks.vouchers.approve');

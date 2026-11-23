@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowRight, Laptop, Monitor, Pencil, Phone, Printer, Server, Smartphone } from 'lucide-react'
 import { DeviceForm } from './DevicesPage'
 import { DeviceLocationTower } from './components/DeviceLocationTower'
+import { CustodySection } from './components/CustodySection'
 import { Button, PageHeader, Pill, Toast } from '../../shared/components/ui'
 import { usePermission } from '../../shared/data/auth'
 import { useDeviceTypes, useDevices } from '../../shared/data/store'
@@ -167,6 +168,8 @@ export default function DeviceDetailsPage() {
               {CLASSIFICATIONS[device.classification].hint}
             </div>
           </section>
+
+          <CustodySection device={device} deviceTypeLabel={typeItem?.label ?? device.kind} canManage={canManage} />
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
