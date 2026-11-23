@@ -15,9 +15,6 @@ export const recordAudit = (
 export const loginWithEmail = (email: string, password: string, remember = true) =>
   useAuthStore.getState().login(email, password, remember)
 
-export const quickDemoLogin = (remember = true) =>
-  useAuthStore.getState().quickDemoLogin(remember)
-
 export const logout = () => useAuthStore.getState().logout()
 
 export function useAuth(): AuthSession | null {

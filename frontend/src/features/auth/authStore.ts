@@ -57,7 +57,6 @@ export interface AuthState {
     password: string,
     remember?: boolean,
   ) => Promise<{ ok: true; session: AuthSession } | { ok: false; error: string; isConnectionError?: boolean }>
-  quickDemoLogin: (remember?: boolean) => void
   changePassword: (
     currentPassword: string,
     newPassword: string,
@@ -168,24 +167,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  quickDemoLogin: (remember = true) => {
-    const users = usersStore.getAll()
-    const admin = users.find((u) => u.active) ?? users[0]
-    if (!admin) return
-    set({ justLoggedIn: true })
-    get().setSession(
-      {
-        userId: admin.id,
-        name: admin.name,
-        email: admin.email,
-        department: admin.department,
-        permissions: admin.permissions,
-      },
-      remember,
-    )
-    get().recordAudit('login', 'auth', `دخول تجريبي: ${admin.name}`, admin.id)
-  },
-
   changePassword: async (currentPassword, newPassword) => {
     const session = get().session
     if (!session) {
@@ -210,15 +191,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
 
-    const users = usersStore.getAll()
-    const current = users.find((u) => u.id === session.userId)
-    if (!current) return { ok: false, error: 'المستخدم غير موجود.' }
-    const expected = current.password ?? '123456'
-    if (currentPassword !== expected) {
-      return { ok: false, error: 'كلمة المرور الحالية غير صحيحة.' }
-    }
-    usersStore.update({ ...current, password: newPassword })
-    return { ok: true }
+    return { ok: false, error: 'انتهت الجلسة، يرجى تسجيل الدخول مجدداً.' }
   },
 
   logout: () => {

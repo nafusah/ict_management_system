@@ -367,7 +367,8 @@ function UserFormModal({
     if (!username || /\s|@/.test(username)) {
       nextErrors.email = 'يرجى إدخال اسم المستخدم فقط بدون مسافات (يُضاف @nafusah.com تلقائياً)'
     }
-    if (password && password.length < 4) nextErrors.password = 'كلمة المرور يجب أن تكون 4 أحرف على الأقل'
+    if (!user && !password.trim()) nextErrors.password = 'يرجى إدخال كلمة مرور للمستخدم الجديد'
+    else if (password && password.length < 4) nextErrors.password = 'كلمة المرور يجب أن تكون 4 أحرف على الأقل'
     if (permissions.length === 0) nextErrors.permissions = 'يرجى اختيار صلاحية واحدة على الأقل'
 
     if (Object.keys(nextErrors).length > 0) {
@@ -375,11 +376,12 @@ function UserFormModal({
       return
     }
 
-    const resolvedPassword = password.trim() || user?.password || '123456'
+    // كلمة المرور تُرسل فقط إذا كُتبت؛ في التعديل تركها فارغة يبقي كلمة المرور الحالية
+    const newPassword = password.trim()
     onSave({
       name: name.trim(),
       email: `${username.toLowerCase()}@nafusah.com`,
-      password: resolvedPassword,
+      ...(newPassword ? { password: newPassword } : {}),
       department: IT_DEPARTMENT,
       active,
       permissions,
@@ -471,7 +473,7 @@ function UserFormModal({
 
           <Field
             label={user ? 'كلمة المرور (اختياري للتغيير)' : 'كلمة المرور'}
-            hint={!user ? 'الافتراضية 123456 إذا تُركت فارغة' : undefined}
+            hint={user ? 'اتركها فارغة للإبقاء على كلمة المرور الحالية' : undefined}
             error={errors.password}
           >
             {(id, desc) => (
