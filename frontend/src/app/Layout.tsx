@@ -37,7 +37,7 @@ import { logout, useAuth, useCurrentPermissions, usePermission } from '../shared
 import { useInkColors, useInkVouchers, useInks, useSubscriptions } from '../shared/data/store'
 import { daysUntilExpiry, getSubscriptionStatus, isLowStock } from '../shared/data/types'
 import type { Permission } from '../shared/data/types'
-import { Button, Field, Modal, Pill, TextInput, Toast, cx } from '../shared/components/ui'
+import { Button, Field, Modal, Pill, TextInput, Toast, cx, useFocusTrap } from '../shared/components/ui'
 
 type NavItem = {
   to: string
@@ -296,7 +296,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             className={cx(idx > 0 && 'border-t border-slate-800/80 pt-2')}
           >
             {section.title && (
-              <div className="px-3 pb-1 text-[11px] font-bold tracking-wide text-slate-500">
+              <div className="px-3 pb-1 text-[11px] font-bold tracking-wide text-slate-400">
                 {section.title}
               </div>
             )}
@@ -310,7 +310,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       {visibleBottom.length > 0 && (
         <div className="relative z-10 border-t border-slate-800 p-2">
-          <div className="px-3 pt-0.5 pb-1 text-[11px] font-bold tracking-wide text-slate-500">
+          <div className="px-3 pt-0.5 pb-1 text-[11px] font-bold tracking-wide text-slate-400">
             النظام والإدارة
           </div>
           <ul className="flex flex-col gap-0.5">
@@ -332,6 +332,11 @@ export default function Layout() {
   const [pwdToast, setPwdToast] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const menuTriggerRef = useRef<HTMLButtonElement>(null)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(drawerOpen, drawerRef, () => setDrawerOpen(false))
+  useFocusTrap(notifOpen, notifRef, () => setNotifOpen(false))
 
   useEffect(() => {
     const onSyncError = (e: Event) => {
@@ -350,7 +355,10 @@ export default function Layout() {
       }
     }
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false)
+      if (e.key === 'Escape') {
+        setMenuOpen(false)
+        menuTriggerRef.current?.focus()
+      }
     }
     document.addEventListener('mousedown', handleOutside)
     document.addEventListener('keydown', handleKey)
@@ -573,15 +581,22 @@ export default function Layout() {
             className="absolute inset-0 bg-slate-900/50"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="absolute inset-y-0 right-0 w-72 max-w-[85%]">
-            <Sidebar onNavigate={() => setDrawerOpen(false)} />
+          <div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="قائمة التنقل"
+            className="absolute inset-y-0 right-0 w-72 max-w-[85%]"
+          >
             <button
+              data-autofocus
               aria-label="إغلاق القائمة"
               onClick={() => setDrawerOpen(false)}
-              className="absolute top-4 left-3 rounded p-1 text-slate-400 hover:text-white"
+              className="absolute top-4 left-3 z-20 rounded p-1 text-slate-400 hover:text-white focus-visible:outline-2 focus-visible:outline-signal pointer-coarse:p-2.5"
             >
               <X className="size-5" />
             </button>
+            <Sidebar onNavigate={() => setDrawerOpen(false)} />
           </div>
         </div>
       )}
@@ -596,13 +611,14 @@ export default function Layout() {
           <button
             aria-label="فتح القائمة"
             onClick={() => setDrawerOpen(true)}
-            className="rounded-md p-2 text-slate-700 hover:bg-slate-100 lg:hidden"
+            className="rounded-md p-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-900 pointer-coarse:p-3 lg:hidden"
           >
             <List className="size-5" />
           </button>
           <div className="ms-auto flex items-center gap-2.5">
             <div ref={menuRef} className="relative">
               <button
+                ref={menuTriggerRef}
                 type="button"
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
@@ -661,13 +677,16 @@ export default function Layout() {
             </div>
             <button
               type="button"
-              aria-label="الإشعارات"
+              aria-label={
+                notifications.length > 0 ? `الإشعارات (${notifications.length} تنبيه)` : 'الإشعارات'
+              }
+              aria-haspopup="dialog"
               onClick={() => setNotifOpen(true)}
-              className="relative inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-900"
+              className="relative inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-900 pointer-coarse:size-11"
             >
               <Bell className="size-5" />
               {notifications.length > 0 && (
-                <span className="absolute top-0.5 left-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                <span aria-hidden="true" className="absolute top-0.5 left-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
                   {notifications.length}
                 </span>
               )}
@@ -682,7 +701,10 @@ export default function Layout() {
               className="absolute inset-0 bg-slate-900/45"
               onClick={() => setNotifOpen(false)}
             />
-            <aside
+            <div
+              ref={notifRef}
+              role="dialog"
+              aria-modal="true"
               aria-label="لوحة الإشعارات"
               className="drawer-left-enter absolute inset-y-0 left-0 flex w-96 max-w-[92vw] flex-col border-r border-slate-200 bg-white shadow-2xl"
             >
@@ -704,9 +726,10 @@ export default function Layout() {
                   )}
                   <button
                     type="button"
+                    data-autofocus
                     aria-label="إغلاق"
                     onClick={() => setNotifOpen(false)}
-                    className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                    className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-900 pointer-coarse:p-3"
                   >
                     <X className="size-5" />
                   </button>
@@ -729,7 +752,7 @@ export default function Layout() {
                         <Link
                           to={n.to}
                           onClick={() => setNotifOpen(false)}
-                          className="block p-3.5 pe-10"
+                          className="block rounded-xl p-3.5 pe-10 focus-visible:outline-2 focus-visible:outline-slate-900 pointer-coarse:pe-14"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
@@ -751,7 +774,7 @@ export default function Layout() {
                           aria-label="حذف الإشعار"
                           title="حذف الإشعار"
                           onClick={() => dismissNotification(n.id)}
-                          className="absolute top-3 left-2.5 cursor-pointer rounded-md p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                          className="absolute top-3 left-2.5 cursor-pointer rounded-md p-1 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-slate-900 pointer-coarse:top-1.5 pointer-coarse:left-1 pointer-coarse:p-3"
                         >
                           <Trash className="size-4" />
                         </button>
@@ -760,7 +783,7 @@ export default function Layout() {
                   </ul>
                 )}
               </div>
-            </aside>
+            </div>
           </div>
         )}
         <main

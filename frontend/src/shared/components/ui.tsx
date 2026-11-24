@@ -1,8 +1,61 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, RefObject, SelectHTMLAttributes } from 'react'
 import { CaretDown, Check, CheckCircle, Info, MagnifyingGlass, Warning, WarningCircle, X } from '@phosphor-icons/react'
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
+/**
+ * لِلّوحات المنبثقة غير المبنية على dialog (الأدراج الجانبية):
+ * يحبس التركيز داخل العنصر، يغلقه بـ Esc، ويعيد التركيز لمصدره عند الإغلاق.
+ * يُركَّز أولًا على العنصر الذي يحمل data-autofocus إن وُجد.
+ */
+export function useFocusTrap(open: boolean, ref: RefObject<HTMLElement | null>, onClose: () => void) {
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
+  useEffect(() => {
+    if (!open) return
+    const el = ref.current
+    if (!el) return
+    const previous = document.activeElement as HTMLElement | null
+    const focusables = () => Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE))
+    ;(el.querySelector<HTMLElement>('[data-autofocus]') ?? focusables()[0])?.focus()
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const list = focusables()
+      if (list.length === 0) return
+      const first = list[0]
+      const last = list[list.length - 1]
+      const active = document.activeElement
+      if (!el.contains(active)) {
+        e.preventDefault()
+        first.focus()
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      if (previous && document.contains(previous)) previous.focus()
+    }
+  }, [open, ref])
+}
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
@@ -23,7 +76,7 @@ export function Button({
       type="button"
       {...props}
       className={cx(
-        'inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm transition-colors',
+        'inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm transition-colors pointer-coarse:h-11',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900',
         'disabled:cursor-not-allowed disabled:opacity-50',
         buttonStyles[variant],
@@ -46,7 +99,7 @@ export function IconButton({
       title={label}
       {...props}
       className={cx(
-        'inline-flex size-9 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900',
+        'inline-flex size-9 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 pointer-coarse:size-11',
         'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900',
         className,
       )}
@@ -57,7 +110,7 @@ export function IconButton({
 }
 
 const fieldBase =
-  'h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 ' +
+  'h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-500 ' +
   'focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-signal/60 aria-[invalid=true]:border-red-600'
 
 export function Field({
@@ -231,7 +284,7 @@ export function SearchableSelect({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={searchPlaceholder}
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-900 focus:bg-white focus:outline-none"
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-800 placeholder:text-slate-500 focus:border-slate-900 focus:bg-white focus:outline-none"
             />
           </div>
           <ul
@@ -240,7 +293,7 @@ export function SearchableSelect({
             className="overflow-y-auto py-1 text-sm"
           >
             {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-center text-xs text-slate-400">لا توجد نتائج مطابقة</li>
+              <li className="px-3 py-2 text-center text-xs text-slate-500">لا توجد نتائج مطابقة</li>
             ) : (
               filtered.map((o) => {
                 const active = o.value === value
@@ -504,10 +557,10 @@ export function Pagination({
         عرض {shown} من أصل {total} {noun}
       </span>
       <div className="flex gap-2">
-        <Button className="h-8 px-3" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+        <Button className="h-8 px-3 pointer-coarse:h-11" disabled={page <= 1} onClick={() => onPage(page - 1)}>
           السابق
         </Button>
-        <Button className="h-8 px-3" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
+        <Button className="h-8 px-3 pointer-coarse:h-11" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
           التالي
         </Button>
       </div>
@@ -554,8 +607,8 @@ export function Toast({
   const Icon = toastIcons[tone]
   return (
     <div
-      role="status"
-      aria-live="polite"
+      role={tone === 'red' ? 'alert' : 'status'}
+      aria-live={tone === 'red' ? 'assertive' : 'polite'}
       className={cx(
         'fixed top-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold shadow-lg',
         closing ? 'toast-exit' : 'toast-enter',
