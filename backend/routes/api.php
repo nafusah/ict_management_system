@@ -12,10 +12,12 @@ use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\InkColorController;
 use App\Http\Controllers\Api\InkController;
 use App\Http\Controllers\Api\InkVoucherController;
+use App\Http\Controllers\Api\ItProjectController;
 use App\Http\Controllers\Api\PrinterTypeController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\ServiceProviderController;
 use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\StrategicObjectiveController;
 use App\Http\Controllers\Api\SubscriptionCategoryController;
 use App\Http\Controllers\Api\SubscriptionController;
 use Illuminate\Support\Facades\Route;
@@ -66,6 +68,17 @@ Route::middleware('auth.api')->group(function () {
     Route::patch('subscriptions/{subscription}', [SubscriptionController::class, 'update'])->middleware('permission:subscriptions.manage');
     Route::delete('subscriptions/{subscription}', [SubscriptionController::class, 'destroy'])->middleware('permission:subscriptions.manage');
 
+    // IT Governance & Planning — التخطيط والحوكمة التقنية
+    Route::get('strategic-objectives', [StrategicObjectiveController::class, 'index'])->middleware('permission:strategy.view,strategy.manage,projects.view,projects.manage');
+    Route::post('strategic-objectives', [StrategicObjectiveController::class, 'store'])->middleware('permission:strategy.manage');
+    Route::put('strategic-objectives/{objective}', [StrategicObjectiveController::class, 'update'])->middleware('permission:strategy.manage');
+    Route::delete('strategic-objectives/{objective}', [StrategicObjectiveController::class, 'destroy'])->middleware('permission:strategy.manage');
+
+    Route::get('it-projects', [ItProjectController::class, 'index'])->middleware('permission:projects.view,projects.manage,strategy.view,strategy.manage');
+    Route::post('it-projects', [ItProjectController::class, 'store'])->middleware('permission:projects.manage');
+    Route::put('it-projects/{project}', [ItProjectController::class, 'update'])->middleware('permission:projects.manage');
+    Route::delete('it-projects/{project}', [ItProjectController::class, 'destroy'])->middleware('permission:projects.manage');
+
     // Users, Settings & Audit Logs
     Route::apiResource('users', AppUserController::class)->except(['show'])->middleware('permission:settings.manage');
     Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('permission:settings.manage');
@@ -75,12 +88,12 @@ Route::middleware('auth.api')->group(function () {
     Route::get('settings/backup', [BackupController::class, 'download'])->middleware('permission:settings.manage');
 
     // Departments & Employees
-    Route::get('departments', [DepartmentController::class, 'index'])->middleware('permission:employees.manage,settings.manage,devices.view,devices.manage,inks.view,inks.manage,inks.vouchers.view,inks.vouchers.create,inks.vouchers.approve,subscriptions.view,subscriptions.manage');
+    Route::get('departments', [DepartmentController::class, 'index'])->middleware('permission:employees.manage,settings.manage,devices.view,devices.manage,inks.view,inks.manage,inks.vouchers.view,inks.vouchers.create,inks.vouchers.approve,subscriptions.view,subscriptions.manage,strategy.manage,projects.manage');
     Route::post('departments', [DepartmentController::class, 'store'])->middleware('permission:employees.manage,settings.manage');
     Route::put('departments/{department}', [DepartmentController::class, 'update'])->middleware('permission:employees.manage,settings.manage');
     Route::delete('departments/{department}', [DepartmentController::class, 'destroy'])->middleware('permission:employees.manage,settings.manage');
 
-    Route::get('employees', [EmployeeController::class, 'index'])->middleware('permission:employees.manage,settings.manage,devices.view,devices.manage,inks.view,inks.manage,inks.vouchers.view,inks.vouchers.create,inks.vouchers.approve');
+    Route::get('employees', [EmployeeController::class, 'index'])->middleware('permission:employees.manage,settings.manage,devices.view,devices.manage,inks.view,inks.manage,inks.vouchers.view,inks.vouchers.create,inks.vouchers.approve,strategy.manage,projects.manage');
     Route::post('employees', [EmployeeController::class, 'store'])->middleware('permission:employees.manage,settings.manage');
     Route::put('employees/{employee}', [EmployeeController::class, 'update'])->middleware('permission:employees.manage,settings.manage');
     Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('permission:employees.manage,settings.manage');

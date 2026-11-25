@@ -127,6 +127,10 @@ export type Permission =
   | 'dictionary.services'
   | 'settings.manage'
   | 'employees.manage'
+  | 'strategy.view'
+  | 'strategy.manage'
+  | 'projects.view'
+  | 'projects.manage'
 
 export interface AppUser {
   id: string
@@ -182,6 +186,10 @@ export const PERMISSIONS: Record<Permission, { label: string; group: string }> =
   'dictionary.services': { label: 'القاموس: إدارة الخدمات والمزودين', group: 'القاموس' },
   'settings.manage': { label: 'إدارة الإعدادات والمستخدمين', group: 'النظام' },
   'employees.manage': { label: 'إدارة الموظفين والإدارات', group: 'النظام' },
+  'strategy.view': { label: 'عرض الاستراتيجية التقنية والأهداف', group: 'التخطيط والحوكمة التقنية' },
+  'strategy.manage': { label: 'إدارة الأهداف الاستراتيجية ومؤشرات الأداء', group: 'التخطيط والحوكمة التقنية' },
+  'projects.view': { label: 'عرض المشاريع التقنية', group: 'التخطيط والحوكمة التقنية' },
+  'projects.manage': { label: 'إدارة المشاريع (إضافة/تعديل/حذف)', group: 'التخطيط والحوكمة التقنية' },
 }
 
 export type SubscriptionCategoryIcon = 'monitor' | 'cloud' | 'security' | 'network' | 'wifi' | 'layers'

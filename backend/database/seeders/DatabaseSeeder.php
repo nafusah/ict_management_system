@@ -118,6 +118,10 @@ class DatabaseSeeder extends Seeder
                     'dictionary.services',
                     'settings.manage',
                     'employees.manage',
+                    'strategy.view',
+                    'strategy.manage',
+                    'projects.view',
+                    'projects.manage',
                 ],
             ],
         ] as $row) {

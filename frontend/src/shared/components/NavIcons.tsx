@@ -196,3 +196,27 @@ export function DictionaryNavIcon(props: NavIconProps) {
     </StackedCard>
   )
 }
+
+export function StrategyNavIcon(props: NavIconProps) {
+  return (
+    <StackedCard {...props}>
+      <circle cx="11" cy="15" r="7.5" fill={A} />
+      <circle cx="11" cy="15" r="5" fill="#fff" />
+      <circle cx="11" cy="15" r="2.6" fill={S} stroke={A} strokeWidth="1.2" />
+      <path d="M11 15 17.6 6.4" stroke={D} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="m15.6 6.2 2.4-.6.4 2.6" stroke={D} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </StackedCard>
+  )
+}
+
+export function ProjectsNavIcon(props: NavIconProps) {
+  return (
+    <StackedCard {...props}>
+      <rect x="3.5" y="5" width="1.4" height="19" rx="0.7" fill={D} />
+      <rect x="6" y="6.5" width="9" height="3.2" rx="1.2" fill={A} />
+      <rect x="9" y="11.6" width="9.5" height="3.2" rx="1.2" fill={S} stroke={A} strokeWidth="0.8" />
+      <rect x="6.5" y="16.7" width="7" height="3.2" rx="1.2" fill={A} />
+      <path d="m15.2 21.6 1.6 1.5 2.6-3" stroke={A} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </StackedCard>
+  )
+}

@@ -16,6 +16,7 @@ import {
   useInks,
 } from '../../features/inks/inksStore'
 import { subscriptionsStore, useSubscriptions } from '../../features/subscriptions/subscriptionsStore'
+import { objectivesStore, projectsStore, useObjectives, useProjects } from '../../features/governance/governanceStore'
 import {
   brandsStore,
   deletePrinterType,
@@ -64,7 +65,9 @@ export {
   inkDispensesStore,
   inkVouchersStore,
   inksStore,
+  objectivesStore,
   printerTypesStore,
+  projectsStore,
   providersStore,
   savePrinterType,
   saveSettingsToApi,
@@ -81,7 +84,9 @@ export {
   useInkDispenses,
   useInkVouchers,
   useInks,
+  useObjectives,
   usePrinterTypes,
+  useProjects,
   useProviders,
   usersStore,
   useServices,
@@ -198,11 +203,15 @@ async function runHydration(explicitPerms?: Permission[]) {
     jobs.push(subscriptionCategoriesStore.hydrate())
   }
 
-  if (hasAny('employees.manage', 'settings.manage', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage', 'inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve', 'subscriptions.view', 'subscriptions.manage')) {
+  if (hasAny('strategy.view', 'strategy.manage', 'projects.view', 'projects.manage')) {
+    jobs.push(objectivesStore.hydrate(), projectsStore.hydrate())
+  }
+
+  if (hasAny('employees.manage', 'settings.manage', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage', 'inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve', 'subscriptions.view', 'subscriptions.manage', 'strategy.manage', 'projects.manage')) {
     jobs.push(departmentsStore.hydrate())
   }
 
-  if (hasAny('employees.manage', 'settings.manage', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage', 'inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve')) {
+  if (hasAny('employees.manage', 'settings.manage', 'devices.view', 'devices.manage', 'inks.view', 'inks.manage', 'inks.vouchers.view', 'inks.vouchers.create', 'inks.vouchers.approve', 'strategy.manage', 'projects.manage')) {
     jobs.push(employeesStore.hydrate())
   }
 
