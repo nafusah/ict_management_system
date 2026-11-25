@@ -19,9 +19,9 @@ import {
 } from '../../shared/components/ui'
 import { SettingsTabs } from './components/SettingsTabs'
 import { useAuthStore } from '../auth/authStore'
-import { recordAudit } from '../../shared/data/auth'
+import { recordAudit, useCurrentPermissions } from '../../shared/data/auth'
 import { usersStore, useUsers, useDataLoading } from '../../shared/data/store'
-import { PERMISSIONS } from '../../shared/data/types'
+import { EXCLUSIVE_PERMISSIONS, PERMISSIONS } from '../../shared/data/types'
 import type { AppUser, Permission } from '../../shared/data/types'
 
 const IT_DEPARTMENT = 'إدارة الاتصالات وتقنية المعلومات'
@@ -33,7 +33,7 @@ const PERMISSION_GROUPS = Array.from(new Set(ALL_PERMISSIONS.map((p) => PERMISSI
 }))
 
 const PERMISSION_PRESETS: { label: string; permissions: Permission[] }[] = [
-  { label: 'مدير نظام (الكل)', permissions: ALL_PERMISSIONS },
+  { label: 'مدير نظام (الكل)', permissions: ALL_PERMISSIONS.filter((p) => !EXCLUSIVE_PERMISSIONS.includes(p)) },
   {
     label: 'فني دعم',
     permissions: [
@@ -216,8 +216,11 @@ export default function Users() {
                     </td>
                     <td className="px-4 py-3 text-slate-700">{u.department}</td>
                     <td className="px-4 py-3">
-                      {u.permissions.length === ALL_PERMISSIONS.length ? (
-                        <Pill tone="amber">كامل الصلاحيات ({ALL_PERMISSIONS.length})</Pill>
+                      {ALL_PERMISSIONS.every((p) => EXCLUSIVE_PERMISSIONS.includes(p) || u.permissions.includes(p)) ? (
+                        <Pill tone="amber">
+                          كامل الصلاحيات
+                          {u.permissions.some((p) => EXCLUSIVE_PERMISSIONS.includes(p)) ? ' + طباعة التقارير' : ''}
+                        </Pill>
                       ) : u.permissions.length === 0 ? (
                         <span className="text-xs text-slate-400">بدون صلاحيات</span>
                       ) : (
@@ -358,7 +361,12 @@ function UserFormModal({
     if (open) resetFor(user)
   }
 
+  const myPermissions = useCurrentPermissions()
+  // الصلاحية الحصرية لا يغيّرها إلا من يملكها
+  const canChange = (perm: Permission) => !EXCLUSIVE_PERMISSIONS.includes(perm) || myPermissions.includes(perm)
+
   const togglePermission = (perm: Permission) => {
+    if (!canChange(perm)) return
     setPermissions((prev) => (prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]))
     setErrors((e) => ({ ...e, permissions: undefined }))
   }
@@ -510,7 +518,11 @@ function UserFormModal({
                   key={preset.label}
                   type="button"
                   onClick={() => {
-                    setPermissions(preset.permissions)
+                    // القوالب لا تمس الصلاحيات الحصرية: تبقى كما هي
+                    setPermissions((prev) => [
+                      ...preset.permissions.filter((p) => !EXCLUSIVE_PERMISSIONS.includes(p)),
+                      ...prev.filter((p) => EXCLUSIVE_PERMISSIONS.includes(p)),
+                    ])
                     setErrors((err) => ({ ...err, permissions: undefined }))
                   }}
                   className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100"
@@ -528,11 +540,14 @@ function UserFormModal({
                 <div className="grid gap-2 sm:grid-cols-2">
                   {items.map((perm) => {
                     const checked = permissions.includes(perm)
+                    const locked = !canChange(perm)
                     return (
                       <label
                         key={perm}
+                        title={locked ? 'صلاحية حصرية: لا يمنحها أو يسحبها إلا من يملكها' : undefined}
                         className={cx(
-                          'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                          'flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                          locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
                           checked
                             ? 'border-slate-900 bg-white font-semibold text-slate-900'
                             : 'border-slate-200 bg-white/60 text-slate-600 hover:border-slate-300',
@@ -541,6 +556,7 @@ function UserFormModal({
                         <input
                           type="checkbox"
                           checked={checked}
+                          disabled={locked}
                           onChange={() => togglePermission(perm)}
                           className="sr-only"
                         />
@@ -552,7 +568,10 @@ function UserFormModal({
                         >
                           {checked && <Check className="size-3.5 stroke-[3]" />}
                         </span>
-                        <span className="leading-snug">{PERMISSIONS[perm].label}</span>
+                        <span className="leading-snug">
+                          {PERMISSIONS[perm].label}
+                          {locked && <span className="block text-[11px] font-normal text-slate-500">يمنحها مالك الصلاحية فقط</span>}
+                        </span>
                       </label>
                     )
                   })}

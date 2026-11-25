@@ -22,6 +22,7 @@ const ACTION_META: Record<AuditAction, { label: string; tone: 'green' | 'blue' |
   restocked: { label: 'توريد مخزون', tone: 'green' },
   login: { label: 'تسجيل دخول', tone: 'slate' },
   logout: { label: 'تسجيل خروج', tone: 'slate' },
+  printed: { label: 'طباعة تقرير', tone: 'blue' },
 }
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -32,6 +33,9 @@ const ENTITY_LABELS: Record<string, string> = {
   employee: 'الموظفين',
   department: 'الإدارات',
   auth: 'الجلسات',
+  report: 'التقارير',
+  strategic_objective: 'الأهداف الاستراتيجية',
+  it_project: 'المشاريع',
 }
 
 function formatDateTime(iso: string): string {

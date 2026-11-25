@@ -11,6 +11,7 @@ import {
   InksNavIcon,
   PrintersNavIcon,
   ProjectsNavIcon,
+  ReportsNavIcon,
   SettingsNavIcon,
   StrategyNavIcon,
   SubscriptionsNavIcon,
@@ -67,6 +68,7 @@ const NAV_SECTIONS: NavSection[] = [
         icon: DashboardNavIcon,
         permissions: ['dashboard.devices', 'dashboard.inks', 'dashboard.subscriptions'],
       },
+      { to: '/reports', label: 'التقارير', icon: ReportsNavIcon, end: true, permissions: ['reports.print'] },
     ],
   },
   {

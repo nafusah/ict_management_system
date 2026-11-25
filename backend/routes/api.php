@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\InkController;
 use App\Http\Controllers\Api\InkVoucherController;
 use App\Http\Controllers\Api\ItProjectController;
 use App\Http\Controllers\Api\PrinterTypeController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\ServiceProviderController;
 use App\Http\Controllers\Api\SettingController;
@@ -78,6 +79,9 @@ Route::middleware('auth.api')->group(function () {
     Route::post('it-projects', [ItProjectController::class, 'store'])->middleware('permission:projects.manage');
     Route::put('it-projects/{project}', [ItProjectController::class, 'update'])->middleware('permission:projects.manage');
     Route::delete('it-projects/{project}', [ItProjectController::class, 'destroy'])->middleware('permission:projects.manage');
+
+    // Reports — طباعة التقارير (صلاحية حصرية)
+    Route::post('reports/print-log', [ReportController::class, 'logPrint'])->middleware('permission:reports.print');
 
     // Users, Settings & Audit Logs
     Route::apiResource('users', AppUserController::class)->except(['show'])->middleware('permission:settings.manage');

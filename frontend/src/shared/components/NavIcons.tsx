@@ -220,3 +220,16 @@ export function ProjectsNavIcon(props: NavIconProps) {
     </StackedCard>
   )
 }
+
+export function ReportsNavIcon(props: NavIconProps) {
+  return (
+    <StackedCard {...props}>
+      <rect x="4" y="4.5" width="14" height="19" rx="1.8" fill={A} />
+      <rect x="6.2" y="7.2" width="9.6" height="13.8" rx="0.8" fill="#fff" />
+      <rect x="7.6" y="15.2" width="1.8" height="4" rx="0.4" fill={A} />
+      <rect x="10.1" y="12.4" width="1.8" height="6.8" rx="0.4" fill={S} stroke={A} strokeWidth="0.6" />
+      <rect x="12.6" y="10" width="1.8" height="9.2" rx="0.4" fill={D} />
+      <rect x="7.6" y="8.8" width="4" height="1.1" rx="0.55" fill={S} />
+    </StackedCard>
+  )
+}

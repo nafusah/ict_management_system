@@ -31,6 +31,7 @@ const SubscriptionsSummaryPage = lazy(() => import('../features/subscriptions/Su
 const Users = lazy(() => import('../features/settings/UsersPage'))
 const StrategyPage = lazy(() => import('../features/governance/StrategyPage'))
 const ProjectsPage = lazy(() => import('../features/governance/ProjectsPage'))
+const ReportsPage = lazy(() => import('../features/reports/ReportsPage'))
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const session = useAuth()
@@ -179,6 +180,14 @@ export default function App() {
             element={
               <RequirePermission allow={['projects.view', 'projects.manage']}>
                 <ProjectsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="reports"
+            element={
+              <RequirePermission allow={['reports.print']}>
+                <ReportsPage />
               </RequirePermission>
             }
           />

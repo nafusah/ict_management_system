@@ -131,6 +131,7 @@ export type Permission =
   | 'strategy.manage'
   | 'projects.view'
   | 'projects.manage'
+  | 'reports.print'
 
 export interface AppUser {
   id: string
@@ -142,7 +143,7 @@ export interface AppUser {
   permissions: Permission[]
 }
 
-export type AuditAction = 'created' | 'updated' | 'deleted' | 'dispensed' | 'restocked' | 'login' | 'logout'
+export type AuditAction = 'created' | 'updated' | 'deleted' | 'dispensed' | 'restocked' | 'login' | 'logout' | 'printed'
 
 export interface AuditLogItem {
   id: string
@@ -190,7 +191,11 @@ export const PERMISSIONS: Record<Permission, { label: string; group: string }> =
   'strategy.manage': { label: 'إدارة الأهداف الاستراتيجية ومؤشرات الأداء', group: 'التخطيط والحوكمة التقنية' },
   'projects.view': { label: 'عرض المشاريع التقنية', group: 'التخطيط والحوكمة التقنية' },
   'projects.manage': { label: 'إدارة المشاريع (إضافة/تعديل/حذف)', group: 'التخطيط والحوكمة التقنية' },
+  'reports.print': { label: 'طباعة التقارير (صلاحية حصرية)', group: 'التقارير' },
 }
+
+/** صلاحيات حصرية: لا يمنحها أو يسحبها إلا من يملكها (يُفرض أيضاً على الخادم). */
+export const EXCLUSIVE_PERMISSIONS: Permission[] = ['reports.print']
 
 export type SubscriptionCategoryIcon = 'monitor' | 'cloud' | 'security' | 'network' | 'wifi' | 'layers'
 export type SubscriptionCategory = string

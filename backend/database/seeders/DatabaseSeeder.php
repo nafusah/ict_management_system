@@ -122,6 +122,7 @@ class DatabaseSeeder extends Seeder
                     'strategy.manage',
                     'projects.view',
                     'projects.manage',
+                    'reports.print',
                 ],
             ],
         ] as $row) {
